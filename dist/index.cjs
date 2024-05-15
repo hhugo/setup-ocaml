@@ -104118,7 +104118,6 @@ async function setupOpamWindows() {
   await core2.group("Initialise the opam state", async () => {
     await initializeOpamWindows();
   });
-  process3__namespace.env["PATH"] = originalPath.join(path4__namespace.delimiter);
 }
 async function setupOpam() {
   if (PLATFORM === "win32") {

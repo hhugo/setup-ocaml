@@ -251,7 +251,6 @@ async function setupOpamWindows() {
   await core.group("Initialise the opam state", async () => {
     await initializeOpamWindows();
   });
-  process.env["PATH"] = originalPath.join(path.delimiter);
 }
 
 export async function setupOpam() {
