@@ -215,13 +215,13 @@ async function acquireOpamWindows() {
     core.info(`Acquired ${version} from ${browserDownloadUrl}`);
     const cachedPath = await toolCache.cacheFile(
       downloadedPath,
-      "opam",
+      "opam.exe",
       "opam",
       version,
       ARCHITECTURE,
     );
     core.info(`Successfully cached opam to ${cachedPath}`);
-    await fs.chmod(`${cachedPath}/opam`, 0o755);
+    await fs.chmod(`${cachedPath}/opam.exe`, 0o755);
     core.addPath(cachedPath);
     core.info("Added opam to the path");
   } else {
