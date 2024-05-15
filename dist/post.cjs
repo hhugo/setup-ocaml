@@ -84498,7 +84498,7 @@ var PLATFORM = (() => {
 var CYGWIN_ROOT = path2__namespace.join("D:", "cygwin");
 path2__namespace.join(CYGWIN_ROOT, "bin");
 path2__namespace.join(CYGWIN_ROOT, "wrapperbin");
-var ALLOW_PRERELEASE_OPAM = PLATFORM !== "win32" && core.getBooleanInput("allow-prerelease-opam", {
+var ALLOW_PRERELEASE_OPAM = core.getBooleanInput("allow-prerelease-opam", {
   required: false,
   trimWhitespace: true
 });

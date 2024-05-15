@@ -89985,7 +89985,7 @@ var PLATFORM = (() => {
 var CYGWIN_ROOT = path4__namespace.join("D:", "cygwin");
 var CYGWIN_ROOT_BIN = path4__namespace.join(CYGWIN_ROOT, "bin");
 var CYGWIN_ROOT_WRAPPERBIN = path4__namespace.join(CYGWIN_ROOT, "wrapperbin");
-var ALLOW_PRERELEASE_OPAM = PLATFORM !== "win32" && core.getBooleanInput("allow-prerelease-opam", {
+var ALLOW_PRERELEASE_OPAM = core.getBooleanInput("allow-prerelease-opam", {
   required: false,
   trimWhitespace: true
 });
@@ -104076,7 +104076,7 @@ async function setupCygwin() {
   await io.cp(setupExePath, CYGWIN_ROOT);
 }
 async function acquireOpamWindows() {
-  await (0, import_exec2.exec)("winget", ["install", "opam"]);
+  await (0, import_exec2.exec)("winpty", ["winget", "install", "opam"]);
 }
 async function initializeOpamWindows() {
   await (0, import_exec2.exec)("git", ["config", "--global", "--add", "safe.directory", "'*'"]);

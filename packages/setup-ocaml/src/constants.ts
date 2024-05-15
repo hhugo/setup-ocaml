@@ -41,9 +41,7 @@ export const CYGWIN_ROOT_BIN = path.join(CYGWIN_ROOT, "bin");
 
 export const CYGWIN_ROOT_WRAPPERBIN = path.join(CYGWIN_ROOT, "wrapperbin");
 
-// [todo] remove the branch for Windows once opam 2.2 is released as stable.
 export const ALLOW_PRERELEASE_OPAM =
-  PLATFORM !== "win32" &&
   core.getBooleanInput("allow-prerelease-opam", {
     required: false,
     trimWhitespace: true,
