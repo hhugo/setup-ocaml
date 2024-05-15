@@ -17,7 +17,7 @@ function isSemverValidRange(semverVersion: string) {
 async function getAllCompilerVersions() {
   const octokit = github.getOctokit(GITHUB_TOKEN);
 
-  const owner = PLATFORM === "win32" ? "ocaml-opam" : "ocaml";
+  const owner = PLATFORM === "win32-disabled" ? "ocaml-opam" : "ocaml";
   const repo =
     PLATFORM === "win32-disabled" ? "opam-repository-mingw" : "opam-repository";
   const prefix =
