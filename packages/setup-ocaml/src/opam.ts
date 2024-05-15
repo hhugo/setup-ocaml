@@ -30,6 +30,7 @@ import { getCygwinVersion } from "./win32.js";
 export async function getLatestOpamRelease() {
   const semverRange = ALLOW_PRERELEASE_OPAM ? "*" : "<2.2.0";
   const octokit = github.getOctokit(GITHUB_TOKEN);
+  const opam_platform = PLATFORM === "win32" ? "windows" : PLATFORM;
   const { data: releases } = await octokit.rest.repos.listReleases({
     owner: "ocaml",
     repo: "opam",
@@ -51,7 +52,7 @@ export async function getLatestOpamRelease() {
     );
   }
   const matchedAssets = latestRelease.assets.find((asset) =>
-    asset.browser_download_url.includes(`${ARCHITECTURE}-${PLATFORM}`),
+    asset.browser_download_url.includes(`${ARCHITECTURE}-${opam_platform}`),
   );
   if (!matchedAssets) {
     throw new Error(
