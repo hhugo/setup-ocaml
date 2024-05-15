@@ -104076,7 +104076,7 @@ async function setupCygwin() {
   await io.cp(setupExePath, CYGWIN_ROOT);
 }
 async function acquireOpamWindows() {
-  await (0, import_exec2.exec)("winpty", ["winget", "install", "opam"]);
+  await (0, import_exec2.exec)("pwsh", ["winget", "install", "opam"]);
 }
 async function initializeOpamWindows() {
   await (0, import_exec2.exec)("git", ["config", "--global", "--add", "safe.directory", "'*'"]);
