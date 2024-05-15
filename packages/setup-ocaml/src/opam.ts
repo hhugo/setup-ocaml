@@ -207,26 +207,7 @@ async function setupCygwin() {
 }
 
 async function acquireOpamWindows() {
-  const opamVersion = "0.0.0.2";
-  const cachedPath = toolCache.find("opam", opamVersion);
-  if (cachedPath === "") {
-    const downloadedPath = await toolCache.downloadTool(
-      `https://github.com/fdopen/opam-repository-mingw/releases/download/${opamVersion}/opam64.zip`,
-    );
-    const extractedPath = await toolCache.extractZip(downloadedPath);
-    const cachedPath = await toolCache.cacheDir(
-      extractedPath,
-      "opam",
-      opamVersion,
-    );
-    const installSh = path.join(cachedPath, "opam64", "install.sh");
-    await fs.chmod(installSh, 0o755);
-    await exec("bash", [installSh, "--prefix", "/usr"]);
-  } else {
-    const installSh = path.join(cachedPath, "opam64", "install.sh");
-    await fs.chmod(installSh, 0o755);
-    await exec("bash", [installSh, "--prefix", "/usr"]);
-  }
+  await exec("winget", ["install", "opam"]);
 }
 
 async function initializeOpamWindows() {

@@ -86019,7 +86019,7 @@ var require_tool_cache = __commonJS({
       });
     }
     exports.extractXar = extractXar;
-    function extractZip2(file, dest) {
+    function extractZip(file, dest) {
       return __awaiter(this, void 0, void 0, function* () {
         if (!file) {
           throw new Error("parameter 'file' is required");
@@ -86033,7 +86033,7 @@ var require_tool_cache = __commonJS({
         return dest;
       });
     }
-    exports.extractZip = extractZip2;
+    exports.extractZip = extractZip;
     function extractZipWin(file, dest) {
       return __awaiter(this, void 0, void 0, function* () {
         const escapedFile = file.replace(/'/g, "''").replace(/"|\n|\r/g, "");
@@ -86091,7 +86091,7 @@ var require_tool_cache = __commonJS({
         yield exec_1.exec(`"${unzipPath}"`, args, { cwd: dest });
       });
     }
-    function cacheDir2(sourceDir, tool, version3, arch3) {
+    function cacheDir(sourceDir, tool, version3, arch3) {
       return __awaiter(this, void 0, void 0, function* () {
         version3 = semver4.clean(version3) || version3;
         arch3 = arch3 || os8.arch();
@@ -86109,7 +86109,7 @@ var require_tool_cache = __commonJS({
         return destPath;
       });
     }
-    exports.cacheDir = cacheDir2;
+    exports.cacheDir = cacheDir;
     function cacheFile2(sourceFile, targetFile, tool, version3, arch3) {
       return __awaiter(this, void 0, void 0, function* () {
         version3 = semver4.clean(version3) || version3;
@@ -104076,26 +104076,7 @@ async function setupCygwin() {
   await io.cp(setupExePath, CYGWIN_ROOT);
 }
 async function acquireOpamWindows() {
-  const opamVersion = "0.0.0.2";
-  const cachedPath = toolCache.find("opam", opamVersion);
-  if (cachedPath === "") {
-    const downloadedPath = await toolCache.downloadTool(
-      `https://github.com/fdopen/opam-repository-mingw/releases/download/${opamVersion}/opam64.zip`
-    );
-    const extractedPath = await toolCache.extractZip(downloadedPath);
-    const cachedPath2 = await toolCache.cacheDir(
-      extractedPath,
-      "opam",
-      opamVersion
-    );
-    const installSh = path4__namespace.join(cachedPath2, "opam64", "install.sh");
-    await fs.promises.chmod(installSh, 493);
-    await (0, import_exec2.exec)("bash", [installSh, "--prefix", "/usr"]);
-  } else {
-    const installSh = path4__namespace.join(cachedPath, "opam64", "install.sh");
-    await fs.promises.chmod(installSh, 493);
-    await (0, import_exec2.exec)("bash", [installSh, "--prefix", "/usr"]);
-  }
+  await (0, import_exec2.exec)("winget", ["install", "opam"]);
 }
 async function initializeOpamWindows() {
   await (0, import_exec2.exec)("git", ["config", "--global", "--add", "safe.directory", "'*'"]);
