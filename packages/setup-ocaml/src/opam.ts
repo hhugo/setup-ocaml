@@ -207,7 +207,7 @@ async function setupCygwin() {
 }
 
 async function acquireOpamWindows() {
-  await exec("pwsh", ["winget", "install", "opam"]);
+  await exec("powershell", ["-Command", "winget install opam"]);
 }
 
 async function initializeOpamWindows() {
