@@ -207,7 +207,26 @@ async function setupCygwin() {
 }
 
 async function acquireOpamWindows() {
-  await exec("powershell", ["-Command", "winget install --accept-source-agreements --accept-package-agreements opam"]);
+  const { version, browserDownloadUrl } = await getLatestOpamRelease();
+  const cachedPath = toolCache.find("opam", version, ARCHITECTURE);
+  if (cachedPath === "") {
+    const downloadedPath = await toolCache.downloadTool(browserDownloadUrl);
+    core.info(`Acquired ${version} from ${browserDownloadUrl}`);
+    const cachedPath = await toolCache.cacheFile(
+      downloadedPath,
+      "opam",
+      "opam",
+      version,
+      ARCHITECTURE,
+    );
+    core.info(`Successfully cached opam to ${cachedPath}`);
+    await fs.chmod(`${cachedPath}/opam`, 0o755);
+    core.addPath(cachedPath);
+    core.info("Added opam to the path");
+  } else {
+    core.addPath(cachedPath);
+    core.info("Added cached opam to the path");
+  }
 }
 
 async function initializeOpamWindows() {
