@@ -103,7 +103,7 @@ const repositories_yaml = yaml.parse(
 ) as Record<string, string> | null;
 
 const defaultRepository =
-  PLATFORM === "win32"
+  PLATFORM === "win32-disabled"
     ? "https://github.com/ocaml-opam/opam-repository-mingw.git#sunset"
     : "https://github.com/ocaml/opam-repository.git";
 

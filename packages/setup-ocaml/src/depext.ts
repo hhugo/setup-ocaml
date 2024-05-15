@@ -8,7 +8,7 @@ import { OPAM_DEPEXT_FLAGS, PLATFORM } from "./constants.js";
 export async function installDepext(ocamlVersion: string) {
   await core.group("Install depext", async () => {
     const depextCygwinports =
-      PLATFORM === "win32" ? ["depext-cygwinports"] : [];
+      PLATFORM === "win32-disabled" ? ["depext-cygwinports"] : [];
     await exec("opam", ["install", "opam-depext", ...depextCygwinports]);
     if (PLATFORM === "win32") {
       let base = "";

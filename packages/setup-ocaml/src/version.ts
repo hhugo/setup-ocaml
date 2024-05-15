@@ -19,9 +19,9 @@ async function getAllCompilerVersions() {
 
   const owner = PLATFORM === "win32" ? "ocaml-opam" : "ocaml";
   const repo =
-    PLATFORM === "win32" ? "opam-repository-mingw" : "opam-repository";
+    PLATFORM === "win32-disabled" ? "opam-repository-mingw" : "opam-repository";
   const prefix =
-    PLATFORM === "win32" ? "ocaml-variants" : "ocaml-base-compiler";
+    PLATFORM === "win32-disabled" ? "ocaml-variants" : "ocaml-base-compiler";
   const { data: packages } = await octokit.rest.repos.getContent({
     owner,
     repo,
@@ -62,7 +62,7 @@ async function resolveVersion(semverVersion: string) {
 
 export async function resolveCompiler(compiler: string) {
   const resolvedCompiler = isSemverValidRange(compiler)
-    ? PLATFORM === "win32"
+    ? PLATFORM === "win32-disabled"
       ? `ocaml-variants.${await resolveVersion(compiler)}+mingw64c`
       : `ocaml-base-compiler.${await resolveVersion(compiler)}`
     : compiler;
