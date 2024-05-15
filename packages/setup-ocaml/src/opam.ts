@@ -65,16 +65,6 @@ export async function getLatestOpamRelease() {
   };
 }
 
-async function findOpam() {
-  if (PLATFORM === "win32") {
-    const opamPath = await io.which("opam.exe");
-    return opamPath;
-  } else {
-    const opamPath = await io.which("opam");
-    return opamPath;
-  }
-}
-
 async function acquireOpamUnix() {
   const { version, browserDownloadUrl } = await getLatestOpamRelease();
   const cachedPath = toolCache.find("opam", version, ARCHITECTURE);
@@ -303,11 +293,10 @@ export async function installOcaml(ocamlCompiler: string) {
 
 export async function pin(fpaths: string[]) {
   await core.group("Pin local packages", async () => {
-    const opam = await findOpam();
     for (const fpath of fpaths) {
       const fname = path.basename(fpath, ".opam");
       const dname = path.dirname(fpath);
-      await exec(opam, ["pin", "add", `${fname}.dev`, ".", "--no-action"], {
+      await exec("opam", ["pin", "add", `${fname}.dev`, ".", "--no-action"], {
         cwd: dname,
       });
     }
@@ -315,8 +304,7 @@ export async function pin(fpaths: string[]) {
 }
 
 async function repositoryAdd(name: string, address: string) {
-  const opam = await findOpam();
-  await exec(opam, [
+  await exec("opam", [
     "repository",
     "add",
     name,
@@ -365,14 +353,12 @@ export async function repositoryAddAll(repositories: [string, string][]) {
 }
 
 async function repositoryRemove(name: string) {
-  const opam = await findOpam();
-  await exec(opam, ["repository", "remove", name, "--all-switches"]);
+  await exec("opam", ["repository", "remove", name, "--all-switches"]);
 }
 
 async function repositoryList() {
-  const opam = await findOpam();
   const repositoryList = await getExecOutput(
-    opam,
+    "opam",
     ["repository", "list", "--all-switches", "--short"],
     { ignoreReturnCode: true },
   );
