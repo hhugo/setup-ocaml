@@ -103942,7 +103942,7 @@ async function getLatestOpamRelease() {
   };
 }
 async function findOpam() {
-  if (PLATFORM === "win32") {
+  if (PLATFORM === "win32-disabled") {
     const opamPath = path4__namespace.join(CYGWIN_ROOT, "bin", "opam.exe");
     return opamPath;
   } else {
