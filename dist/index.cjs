@@ -104087,15 +104087,6 @@ async function initializeOpamWindows() {
     "--disable-sandboxing",
     "--enable-shell-hook"
   ]);
-  await io.mkdirP(CYGWIN_ROOT_WRAPPERBIN);
-  const opamCmd = path4__namespace.join(CYGWIN_ROOT_WRAPPERBIN, "opam.cmd");
-  const data2 = [
-    "@setlocal",
-    "@echo off",
-    "set PATH=%CYGWIN_ROOT_BIN%;%PATH%",
-    "ocaml-env exec -- opam.exe %*"
-  ].join(os__namespace.EOL);
-  await fs.promises.writeFile(opamCmd, data2, { mode: 493 });
 }
 async function setupOpamWindows() {
   await core2.group("Prepare the Cygwin environment", async () => {
