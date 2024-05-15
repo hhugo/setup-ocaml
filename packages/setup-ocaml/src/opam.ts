@@ -66,8 +66,8 @@ export async function getLatestOpamRelease() {
 }
 
 async function findOpam() {
-  if (PLATFORM === "win32-disabled") {
-    const opamPath = path.join(CYGWIN_ROOT, "bin", "opam.exe");
+  if (PLATFORM === "win32") {
+    const opamPath = await io.which("opam.exe");
     return opamPath;
   } else {
     const opamPath = await io.which("opam");
