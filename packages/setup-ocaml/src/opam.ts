@@ -30,6 +30,7 @@ import { getCygwinVersion } from "./win32.js";
 export async function getLatestOpamRelease() {
   const semverRange = ALLOW_PRERELEASE_OPAM ? "*" : "<2.2.0";
   const octokit = github.getOctokit(GITHUB_TOKEN);
+  const opam_platform = PLATFORM === "win32" ? "windows" : PLATFORM;
   const { data: releases } = await octokit.rest.repos.listReleases({
     owner: "ocaml",
     repo: "opam",
@@ -51,7 +52,7 @@ export async function getLatestOpamRelease() {
     );
   }
   const matchedAssets = latestRelease.assets.find((asset) =>
-    asset.browser_download_url.includes(`${ARCHITECTURE}-${PLATFORM}`),
+    asset.browser_download_url.includes(`${ARCHITECTURE}-${opam_platform}`),
   );
   if (!matchedAssets) {
     throw new Error(
@@ -62,16 +63,6 @@ export async function getLatestOpamRelease() {
     version: latestRelease.tag_name,
     browserDownloadUrl: matchedAssets.browser_download_url,
   };
-}
-
-async function findOpam() {
-  if (PLATFORM === "win32") {
-    const opamPath = path.join(CYGWIN_ROOT, "bin", "opam.exe");
-    return opamPath;
-  } else {
-    const opamPath = await io.which("opam");
-    return opamPath;
-  }
 }
 
 async function acquireOpamUnix() {
@@ -207,7 +198,26 @@ async function setupCygwin() {
 }
 
 async function acquireOpamWindows() {
-  await exec("powershell", ["-Command", "winget install --accept-source-agreements --accept-package-agreements opam"]);
+  const { version, browserDownloadUrl } = await getLatestOpamRelease();
+  const cachedPath = toolCache.find("opam", version, ARCHITECTURE);
+  if (cachedPath === "") {
+    const downloadedPath = await toolCache.downloadTool(browserDownloadUrl);
+    core.info(`Acquired ${version} from ${browserDownloadUrl}`);
+    const cachedPath = await toolCache.cacheFile(
+      downloadedPath,
+      "opam.exe",
+      "opam",
+      version,
+      ARCHITECTURE,
+    );
+    core.info(`Successfully cached opam to ${cachedPath}`);
+    await fs.chmod(`${cachedPath}/opam.exe`, 0o755);
+    core.addPath(cachedPath);
+    core.info("Added opam to the path");
+  } else {
+    core.addPath(cachedPath);
+    core.info("Added cached opam to the path");
+  }
 }
 
 async function initializeOpamWindows() {
@@ -219,15 +229,6 @@ async function initializeOpamWindows() {
     "--disable-sandboxing",
     "--enable-shell-hook",
   ]);
-  await io.mkdirP(CYGWIN_ROOT_WRAPPERBIN);
-  const opamCmd = path.join(CYGWIN_ROOT_WRAPPERBIN, "opam.cmd");
-  const data = [
-    "@setlocal",
-    "@echo off",
-    "set PATH=%CYGWIN_ROOT_BIN%;%PATH%",
-    "ocaml-env exec -- opam.exe %*",
-  ].join(os.EOL);
-  await fs.writeFile(opamCmd, data, { mode: 0o755 });
 }
 
 async function setupOpamWindows() {
@@ -250,7 +251,6 @@ async function setupOpamWindows() {
   await core.group("Initialise the opam state", async () => {
     await initializeOpamWindows();
   });
-  process.env["PATH"] = originalPath.join(path.delimiter);
 }
 
 export async function setupOpam() {
@@ -292,11 +292,10 @@ export async function installOcaml(ocamlCompiler: string) {
 
 export async function pin(fpaths: string[]) {
   await core.group("Pin local packages", async () => {
-    const opam = await findOpam();
     for (const fpath of fpaths) {
       const fname = path.basename(fpath, ".opam");
       const dname = path.dirname(fpath);
-      await exec(opam, ["pin", "add", `${fname}.dev`, ".", "--no-action"], {
+      await exec("opam", ["pin", "add", `${fname}.dev`, ".", "--no-action"], {
         cwd: dname,
       });
     }
@@ -304,8 +303,7 @@ export async function pin(fpaths: string[]) {
 }
 
 async function repositoryAdd(name: string, address: string) {
-  const opam = await findOpam();
-  await exec(opam, [
+  await exec("opam", [
     "repository",
     "add",
     name,
@@ -354,14 +352,12 @@ export async function repositoryAddAll(repositories: [string, string][]) {
 }
 
 async function repositoryRemove(name: string) {
-  const opam = await findOpam();
-  await exec(opam, ["repository", "remove", name, "--all-switches"]);
+  await exec("opam", ["repository", "remove", name, "--all-switches"]);
 }
 
 async function repositoryList() {
-  const opam = await findOpam();
   const repositoryList = await getExecOutput(
-    opam,
+    "opam",
     ["repository", "list", "--all-switches", "--short"],
     { ignoreReturnCode: true },
   );
