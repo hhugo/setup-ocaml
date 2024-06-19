@@ -563,7 +563,7 @@ const fs = __importStar(__nccwpck_require__(7147));
 const path = __importStar(__nccwpck_require__(1017));
 const semver = __importStar(__nccwpck_require__(3113));
 const util = __importStar(__nccwpck_require__(3837));
-const uuid_1 = __nccwpck_require__(3438);
+const uuid_1 = __nccwpck_require__(4806);
 const constants_1 = __nccwpck_require__(648);
 // From https://github.com/actions/toolkit/blob/main/packages/tool-cache/src/tool-cache.ts#L23
 function createTempDirectory() {
@@ -804,7 +804,7 @@ const util = __importStar(__nccwpck_require__(3837));
 const utils = __importStar(__nccwpck_require__(4812));
 const constants_1 = __nccwpck_require__(648);
 const requestUtils_1 = __nccwpck_require__(2506);
-const abort_controller_1 = __nccwpck_require__(4383);
+const abort_controller_1 = __nccwpck_require__(6455);
 /**
  * Pipes the body of a HTTP response to a stream
  *
@@ -2721,252 +2721,6 @@ exports.SearchState = SearchState;
 
 /***/ }),
 
-/***/ 4383:
-/***/ ((__unused_webpack_module, exports) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT license.
-/// <reference path="../shims-public.d.ts" />
-const listenersMap = new WeakMap();
-const abortedMap = new WeakMap();
-/**
- * An aborter instance implements AbortSignal interface, can abort HTTP requests.
- *
- * - Call AbortSignal.none to create a new AbortSignal instance that cannot be cancelled.
- * Use `AbortSignal.none` when you are required to pass a cancellation token but the operation
- * cannot or will not ever be cancelled.
- *
- * @example
- * Abort without timeout
- * ```ts
- * await doAsyncWork(AbortSignal.none);
- * ```
- */
-class AbortSignal {
-    constructor() {
-        /**
-         * onabort event listener.
-         */
-        this.onabort = null;
-        listenersMap.set(this, []);
-        abortedMap.set(this, false);
-    }
-    /**
-     * Status of whether aborted or not.
-     *
-     * @readonly
-     */
-    get aborted() {
-        if (!abortedMap.has(this)) {
-            throw new TypeError("Expected `this` to be an instance of AbortSignal.");
-        }
-        return abortedMap.get(this);
-    }
-    /**
-     * Creates a new AbortSignal instance that will never be aborted.
-     *
-     * @readonly
-     */
-    static get none() {
-        return new AbortSignal();
-    }
-    /**
-     * Added new "abort" event listener, only support "abort" event.
-     *
-     * @param _type - Only support "abort" event
-     * @param listener - The listener to be added
-     */
-    addEventListener(
-    // tslint:disable-next-line:variable-name
-    _type, listener) {
-        if (!listenersMap.has(this)) {
-            throw new TypeError("Expected `this` to be an instance of AbortSignal.");
-        }
-        const listeners = listenersMap.get(this);
-        listeners.push(listener);
-    }
-    /**
-     * Remove "abort" event listener, only support "abort" event.
-     *
-     * @param _type - Only support "abort" event
-     * @param listener - The listener to be removed
-     */
-    removeEventListener(
-    // tslint:disable-next-line:variable-name
-    _type, listener) {
-        if (!listenersMap.has(this)) {
-            throw new TypeError("Expected `this` to be an instance of AbortSignal.");
-        }
-        const listeners = listenersMap.get(this);
-        const index = listeners.indexOf(listener);
-        if (index > -1) {
-            listeners.splice(index, 1);
-        }
-    }
-    /**
-     * Dispatches a synthetic event to the AbortSignal.
-     */
-    dispatchEvent(_event) {
-        throw new Error("This is a stub dispatchEvent implementation that should not be used.  It only exists for type-checking purposes.");
-    }
-}
-/**
- * Helper to trigger an abort event immediately, the onabort and all abort event listeners will be triggered.
- * Will try to trigger abort event for all linked AbortSignal nodes.
- *
- * - If there is a timeout, the timer will be cancelled.
- * - If aborted is true, nothing will happen.
- *
- * @internal
- */
-// eslint-disable-next-line @azure/azure-sdk/ts-use-interface-parameters
-function abortSignal(signal) {
-    if (signal.aborted) {
-        return;
-    }
-    if (signal.onabort) {
-        signal.onabort.call(signal);
-    }
-    const listeners = listenersMap.get(signal);
-    if (listeners) {
-        // Create a copy of listeners so mutations to the array
-        // (e.g. via removeListener calls) don't affect the listeners
-        // we invoke.
-        listeners.slice().forEach((listener) => {
-            listener.call(signal, { type: "abort" });
-        });
-    }
-    abortedMap.set(signal, true);
-}
-
-// Copyright (c) Microsoft Corporation.
-/**
- * This error is thrown when an asynchronous operation has been aborted.
- * Check for this error by testing the `name` that the name property of the
- * error matches `"AbortError"`.
- *
- * @example
- * ```ts
- * const controller = new AbortController();
- * controller.abort();
- * try {
- *   doAsyncWork(controller.signal)
- * } catch (e) {
- *   if (e.name === 'AbortError') {
- *     // handle abort error here.
- *   }
- * }
- * ```
- */
-class AbortError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = "AbortError";
-    }
-}
-/**
- * An AbortController provides an AbortSignal and the associated controls to signal
- * that an asynchronous operation should be aborted.
- *
- * @example
- * Abort an operation when another event fires
- * ```ts
- * const controller = new AbortController();
- * const signal = controller.signal;
- * doAsyncWork(signal);
- * button.addEventListener('click', () => controller.abort());
- * ```
- *
- * @example
- * Share aborter cross multiple operations in 30s
- * ```ts
- * // Upload the same data to 2 different data centers at the same time,
- * // abort another when any of them is finished
- * const controller = AbortController.withTimeout(30 * 1000);
- * doAsyncWork(controller.signal).then(controller.abort);
- * doAsyncWork(controller.signal).then(controller.abort);
- *```
- *
- * @example
- * Cascaded aborting
- * ```ts
- * // All operations can't take more than 30 seconds
- * const aborter = Aborter.timeout(30 * 1000);
- *
- * // Following 2 operations can't take more than 25 seconds
- * await doAsyncWork(aborter.withTimeout(25 * 1000));
- * await doAsyncWork(aborter.withTimeout(25 * 1000));
- * ```
- */
-class AbortController {
-    // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-    constructor(parentSignals) {
-        this._signal = new AbortSignal();
-        if (!parentSignals) {
-            return;
-        }
-        // coerce parentSignals into an array
-        if (!Array.isArray(parentSignals)) {
-            // eslint-disable-next-line prefer-rest-params
-            parentSignals = arguments;
-        }
-        for (const parentSignal of parentSignals) {
-            // if the parent signal has already had abort() called,
-            // then call abort on this signal as well.
-            if (parentSignal.aborted) {
-                this.abort();
-            }
-            else {
-                // when the parent signal aborts, this signal should as well.
-                parentSignal.addEventListener("abort", () => {
-                    this.abort();
-                });
-            }
-        }
-    }
-    /**
-     * The AbortSignal associated with this controller that will signal aborted
-     * when the abort method is called on this controller.
-     *
-     * @readonly
-     */
-    get signal() {
-        return this._signal;
-    }
-    /**
-     * Signal that any operations passed this controller's associated abort signal
-     * to cancel any remaining work and throw an `AbortError`.
-     */
-    abort() {
-        abortSignal(this._signal);
-    }
-    /**
-     * Creates a new AbortSignal instance that will abort after the provided ms.
-     * @param ms - Elapsed time in milliseconds to trigger an abort.
-     */
-    static timeout(ms) {
-        const signal = new AbortSignal();
-        const timer = setTimeout(abortSignal, ms, signal);
-        // Prevent the active Timer from keeping the Node.js event loop active.
-        if (typeof timer.unref === "function") {
-            timer.unref();
-        }
-        return signal;
-    }
-}
-
-exports.AbortController = AbortController;
-exports.AbortError = AbortError;
-exports.AbortSignal = AbortSignal;
-//# sourceMappingURL=index.js.map
-
-
-/***/ }),
-
 /***/ 3113:
 /***/ ((module, exports) => {
 
@@ -4617,221 +4371,6 @@ function coerce (version, options) {
 
 /***/ }),
 
-/***/ 3438:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-var v1 = __nccwpck_require__(2346);
-var v4 = __nccwpck_require__(1049);
-
-var uuid = v4;
-uuid.v1 = v1;
-uuid.v4 = v4;
-
-module.exports = uuid;
-
-
-/***/ }),
-
-/***/ 4376:
-/***/ ((module) => {
-
-/**
- * Convert array of 16 byte values to UUID string format of the form:
- * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
- */
-var byteToHex = [];
-for (var i = 0; i < 256; ++i) {
-  byteToHex[i] = (i + 0x100).toString(16).substr(1);
-}
-
-function bytesToUuid(buf, offset) {
-  var i = offset || 0;
-  var bth = byteToHex;
-  // join used to fix memory issue caused by concatenation: https://bugs.chromium.org/p/v8/issues/detail?id=3175#c4
-  return ([
-    bth[buf[i++]], bth[buf[i++]],
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]],
-    bth[buf[i++]], bth[buf[i++]],
-    bth[buf[i++]], bth[buf[i++]]
-  ]).join('');
-}
-
-module.exports = bytesToUuid;
-
-
-/***/ }),
-
-/***/ 9470:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-// Unique ID creation requires a high quality random # generator.  In node.js
-// this is pretty straight-forward - we use the crypto API.
-
-var crypto = __nccwpck_require__(6113);
-
-module.exports = function nodeRNG() {
-  return crypto.randomBytes(16);
-};
-
-
-/***/ }),
-
-/***/ 2346:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-var rng = __nccwpck_require__(9470);
-var bytesToUuid = __nccwpck_require__(4376);
-
-// **`v1()` - Generate time-based UUID**
-//
-// Inspired by https://github.com/LiosK/UUID.js
-// and http://docs.python.org/library/uuid.html
-
-var _nodeId;
-var _clockseq;
-
-// Previous uuid creation time
-var _lastMSecs = 0;
-var _lastNSecs = 0;
-
-// See https://github.com/uuidjs/uuid for API details
-function v1(options, buf, offset) {
-  var i = buf && offset || 0;
-  var b = buf || [];
-
-  options = options || {};
-  var node = options.node || _nodeId;
-  var clockseq = options.clockseq !== undefined ? options.clockseq : _clockseq;
-
-  // node and clockseq need to be initialized to random values if they're not
-  // specified.  We do this lazily to minimize issues related to insufficient
-  // system entropy.  See #189
-  if (node == null || clockseq == null) {
-    var seedBytes = rng();
-    if (node == null) {
-      // Per 4.5, create and 48-bit node id, (47 random bits + multicast bit = 1)
-      node = _nodeId = [
-        seedBytes[0] | 0x01,
-        seedBytes[1], seedBytes[2], seedBytes[3], seedBytes[4], seedBytes[5]
-      ];
-    }
-    if (clockseq == null) {
-      // Per 4.2.2, randomize (14 bit) clockseq
-      clockseq = _clockseq = (seedBytes[6] << 8 | seedBytes[7]) & 0x3fff;
-    }
-  }
-
-  // UUID timestamps are 100 nano-second units since the Gregorian epoch,
-  // (1582-10-15 00:00).  JSNumbers aren't precise enough for this, so
-  // time is handled internally as 'msecs' (integer milliseconds) and 'nsecs'
-  // (100-nanoseconds offset from msecs) since unix epoch, 1970-01-01 00:00.
-  var msecs = options.msecs !== undefined ? options.msecs : new Date().getTime();
-
-  // Per 4.2.1.2, use count of uuid's generated during the current clock
-  // cycle to simulate higher resolution clock
-  var nsecs = options.nsecs !== undefined ? options.nsecs : _lastNSecs + 1;
-
-  // Time since last uuid creation (in msecs)
-  var dt = (msecs - _lastMSecs) + (nsecs - _lastNSecs)/10000;
-
-  // Per 4.2.1.2, Bump clockseq on clock regression
-  if (dt < 0 && options.clockseq === undefined) {
-    clockseq = clockseq + 1 & 0x3fff;
-  }
-
-  // Reset nsecs if clock regresses (new clockseq) or we've moved onto a new
-  // time interval
-  if ((dt < 0 || msecs > _lastMSecs) && options.nsecs === undefined) {
-    nsecs = 0;
-  }
-
-  // Per 4.2.1.2 Throw error if too many uuids are requested
-  if (nsecs >= 10000) {
-    throw new Error('uuid.v1(): Can\'t create more than 10M uuids/sec');
-  }
-
-  _lastMSecs = msecs;
-  _lastNSecs = nsecs;
-  _clockseq = clockseq;
-
-  // Per 4.1.4 - Convert from unix epoch to Gregorian epoch
-  msecs += 12219292800000;
-
-  // `time_low`
-  var tl = ((msecs & 0xfffffff) * 10000 + nsecs) % 0x100000000;
-  b[i++] = tl >>> 24 & 0xff;
-  b[i++] = tl >>> 16 & 0xff;
-  b[i++] = tl >>> 8 & 0xff;
-  b[i++] = tl & 0xff;
-
-  // `time_mid`
-  var tmh = (msecs / 0x100000000 * 10000) & 0xfffffff;
-  b[i++] = tmh >>> 8 & 0xff;
-  b[i++] = tmh & 0xff;
-
-  // `time_high_and_version`
-  b[i++] = tmh >>> 24 & 0xf | 0x10; // include version
-  b[i++] = tmh >>> 16 & 0xff;
-
-  // `clock_seq_hi_and_reserved` (Per 4.2.2 - include variant)
-  b[i++] = clockseq >>> 8 | 0x80;
-
-  // `clock_seq_low`
-  b[i++] = clockseq & 0xff;
-
-  // `node`
-  for (var n = 0; n < 6; ++n) {
-    b[i + n] = node[n];
-  }
-
-  return buf ? buf : bytesToUuid(b);
-}
-
-module.exports = v1;
-
-
-/***/ }),
-
-/***/ 1049:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-var rng = __nccwpck_require__(9470);
-var bytesToUuid = __nccwpck_require__(4376);
-
-function v4(options, buf, offset) {
-  var i = buf && offset || 0;
-
-  if (typeof(options) == 'string') {
-    buf = options === 'binary' ? new Array(16) : null;
-    options = null;
-  }
-  options = options || {};
-
-  var rnds = options.random || (options.rng || rng)();
-
-  // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
-  rnds[6] = (rnds[6] & 0x0f) | 0x40;
-  rnds[8] = (rnds[8] & 0x3f) | 0x80;
-
-  // Copy bytes to buffer, if provided
-  if (buf) {
-    for (var ii = 0; ii < 16; ++ii) {
-      buf[i + ii] = rnds[ii];
-    }
-  }
-
-  return buf || bytesToUuid(rnds);
-}
-
-module.exports = v4;
-
-
-/***/ }),
-
 /***/ 9548:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -5302,7 +4841,7 @@ exports.prepareKeyValueMessage = exports.issueFileCommand = void 0;
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fs = __importStar(__nccwpck_require__(7147));
 const os = __importStar(__nccwpck_require__(2037));
-const uuid_1 = __nccwpck_require__(1972);
+const uuid_1 = __nccwpck_require__(7041);
 const utils_1 = __nccwpck_require__(7472);
 function issueFileCommand(command, message) {
     const filePath = process.env[`GITHUB_${command}`];
@@ -5815,6 +5354,637 @@ function toCommandProperties(annotationProperties) {
 }
 exports.toCommandProperties = toCommandProperties;
 //# sourceMappingURL=utils.js.map
+
+/***/ }),
+
+/***/ 7041:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+Object.defineProperty(exports, "v1", ({
+  enumerable: true,
+  get: function () {
+    return _v.default;
+  }
+}));
+Object.defineProperty(exports, "v3", ({
+  enumerable: true,
+  get: function () {
+    return _v2.default;
+  }
+}));
+Object.defineProperty(exports, "v4", ({
+  enumerable: true,
+  get: function () {
+    return _v3.default;
+  }
+}));
+Object.defineProperty(exports, "v5", ({
+  enumerable: true,
+  get: function () {
+    return _v4.default;
+  }
+}));
+Object.defineProperty(exports, "NIL", ({
+  enumerable: true,
+  get: function () {
+    return _nil.default;
+  }
+}));
+Object.defineProperty(exports, "version", ({
+  enumerable: true,
+  get: function () {
+    return _version.default;
+  }
+}));
+Object.defineProperty(exports, "validate", ({
+  enumerable: true,
+  get: function () {
+    return _validate.default;
+  }
+}));
+Object.defineProperty(exports, "stringify", ({
+  enumerable: true,
+  get: function () {
+    return _stringify.default;
+  }
+}));
+Object.defineProperty(exports, "parse", ({
+  enumerable: true,
+  get: function () {
+    return _parse.default;
+  }
+}));
+
+var _v = _interopRequireDefault(__nccwpck_require__(6415));
+
+var _v2 = _interopRequireDefault(__nccwpck_require__(5410));
+
+var _v3 = _interopRequireDefault(__nccwpck_require__(4100));
+
+var _v4 = _interopRequireDefault(__nccwpck_require__(2796));
+
+var _nil = _interopRequireDefault(__nccwpck_require__(9259));
+
+var _version = _interopRequireDefault(__nccwpck_require__(4056));
+
+var _validate = _interopRequireDefault(__nccwpck_require__(3705));
+
+var _stringify = _interopRequireDefault(__nccwpck_require__(3538));
+
+var _parse = _interopRequireDefault(__nccwpck_require__(7267));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/***/ }),
+
+/***/ 7627:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _crypto = _interopRequireDefault(__nccwpck_require__(6113));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function md5(bytes) {
+  if (Array.isArray(bytes)) {
+    bytes = Buffer.from(bytes);
+  } else if (typeof bytes === 'string') {
+    bytes = Buffer.from(bytes, 'utf8');
+  }
+
+  return _crypto.default.createHash('md5').update(bytes).digest();
+}
+
+var _default = md5;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 9259:
+/***/ ((__unused_webpack_module, exports) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+var _default = '00000000-0000-0000-0000-000000000000';
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 7267:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _validate = _interopRequireDefault(__nccwpck_require__(3705));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function parse(uuid) {
+  if (!(0, _validate.default)(uuid)) {
+    throw TypeError('Invalid UUID');
+  }
+
+  let v;
+  const arr = new Uint8Array(16); // Parse ########-....-....-....-............
+
+  arr[0] = (v = parseInt(uuid.slice(0, 8), 16)) >>> 24;
+  arr[1] = v >>> 16 & 0xff;
+  arr[2] = v >>> 8 & 0xff;
+  arr[3] = v & 0xff; // Parse ........-####-....-....-............
+
+  arr[4] = (v = parseInt(uuid.slice(9, 13), 16)) >>> 8;
+  arr[5] = v & 0xff; // Parse ........-....-####-....-............
+
+  arr[6] = (v = parseInt(uuid.slice(14, 18), 16)) >>> 8;
+  arr[7] = v & 0xff; // Parse ........-....-....-####-............
+
+  arr[8] = (v = parseInt(uuid.slice(19, 23), 16)) >>> 8;
+  arr[9] = v & 0xff; // Parse ........-....-....-....-############
+  // (Use "/" to avoid 32-bit truncation when bit-shifting high-order bytes)
+
+  arr[10] = (v = parseInt(uuid.slice(24, 36), 16)) / 0x10000000000 & 0xff;
+  arr[11] = v / 0x100000000 & 0xff;
+  arr[12] = v >>> 24 & 0xff;
+  arr[13] = v >>> 16 & 0xff;
+  arr[14] = v >>> 8 & 0xff;
+  arr[15] = v & 0xff;
+  return arr;
+}
+
+var _default = parse;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 1315:
+/***/ ((__unused_webpack_module, exports) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+var _default = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 397:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = rng;
+
+var _crypto = _interopRequireDefault(__nccwpck_require__(6113));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const rnds8Pool = new Uint8Array(256); // # of random values to pre-allocate
+
+let poolPtr = rnds8Pool.length;
+
+function rng() {
+  if (poolPtr > rnds8Pool.length - 16) {
+    _crypto.default.randomFillSync(rnds8Pool);
+
+    poolPtr = 0;
+  }
+
+  return rnds8Pool.slice(poolPtr, poolPtr += 16);
+}
+
+/***/ }),
+
+/***/ 8224:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _crypto = _interopRequireDefault(__nccwpck_require__(6113));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function sha1(bytes) {
+  if (Array.isArray(bytes)) {
+    bytes = Buffer.from(bytes);
+  } else if (typeof bytes === 'string') {
+    bytes = Buffer.from(bytes, 'utf8');
+  }
+
+  return _crypto.default.createHash('sha1').update(bytes).digest();
+}
+
+var _default = sha1;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 3538:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _validate = _interopRequireDefault(__nccwpck_require__(3705));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/**
+ * Convert array of 16 byte values to UUID string format of the form:
+ * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+ */
+const byteToHex = [];
+
+for (let i = 0; i < 256; ++i) {
+  byteToHex.push((i + 0x100).toString(16).substr(1));
+}
+
+function stringify(arr, offset = 0) {
+  // Note: Be careful editing this code!  It's been tuned for performance
+  // and works in ways you may not expect. See https://github.com/uuidjs/uuid/pull/434
+  const uuid = (byteToHex[arr[offset + 0]] + byteToHex[arr[offset + 1]] + byteToHex[arr[offset + 2]] + byteToHex[arr[offset + 3]] + '-' + byteToHex[arr[offset + 4]] + byteToHex[arr[offset + 5]] + '-' + byteToHex[arr[offset + 6]] + byteToHex[arr[offset + 7]] + '-' + byteToHex[arr[offset + 8]] + byteToHex[arr[offset + 9]] + '-' + byteToHex[arr[offset + 10]] + byteToHex[arr[offset + 11]] + byteToHex[arr[offset + 12]] + byteToHex[arr[offset + 13]] + byteToHex[arr[offset + 14]] + byteToHex[arr[offset + 15]]).toLowerCase(); // Consistency check for valid UUID.  If this throws, it's likely due to one
+  // of the following:
+  // - One or more input array values don't map to a hex octet (leading to
+  // "undefined" in the uuid)
+  // - Invalid input values for the RFC `version` or `variant` fields
+
+  if (!(0, _validate.default)(uuid)) {
+    throw TypeError('Stringified UUID is invalid');
+  }
+
+  return uuid;
+}
+
+var _default = stringify;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 6415:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _rng = _interopRequireDefault(__nccwpck_require__(397));
+
+var _stringify = _interopRequireDefault(__nccwpck_require__(3538));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+// **`v1()` - Generate time-based UUID**
+//
+// Inspired by https://github.com/LiosK/UUID.js
+// and http://docs.python.org/library/uuid.html
+let _nodeId;
+
+let _clockseq; // Previous uuid creation time
+
+
+let _lastMSecs = 0;
+let _lastNSecs = 0; // See https://github.com/uuidjs/uuid for API details
+
+function v1(options, buf, offset) {
+  let i = buf && offset || 0;
+  const b = buf || new Array(16);
+  options = options || {};
+  let node = options.node || _nodeId;
+  let clockseq = options.clockseq !== undefined ? options.clockseq : _clockseq; // node and clockseq need to be initialized to random values if they're not
+  // specified.  We do this lazily to minimize issues related to insufficient
+  // system entropy.  See #189
+
+  if (node == null || clockseq == null) {
+    const seedBytes = options.random || (options.rng || _rng.default)();
+
+    if (node == null) {
+      // Per 4.5, create and 48-bit node id, (47 random bits + multicast bit = 1)
+      node = _nodeId = [seedBytes[0] | 0x01, seedBytes[1], seedBytes[2], seedBytes[3], seedBytes[4], seedBytes[5]];
+    }
+
+    if (clockseq == null) {
+      // Per 4.2.2, randomize (14 bit) clockseq
+      clockseq = _clockseq = (seedBytes[6] << 8 | seedBytes[7]) & 0x3fff;
+    }
+  } // UUID timestamps are 100 nano-second units since the Gregorian epoch,
+  // (1582-10-15 00:00).  JSNumbers aren't precise enough for this, so
+  // time is handled internally as 'msecs' (integer milliseconds) and 'nsecs'
+  // (100-nanoseconds offset from msecs) since unix epoch, 1970-01-01 00:00.
+
+
+  let msecs = options.msecs !== undefined ? options.msecs : Date.now(); // Per 4.2.1.2, use count of uuid's generated during the current clock
+  // cycle to simulate higher resolution clock
+
+  let nsecs = options.nsecs !== undefined ? options.nsecs : _lastNSecs + 1; // Time since last uuid creation (in msecs)
+
+  const dt = msecs - _lastMSecs + (nsecs - _lastNSecs) / 10000; // Per 4.2.1.2, Bump clockseq on clock regression
+
+  if (dt < 0 && options.clockseq === undefined) {
+    clockseq = clockseq + 1 & 0x3fff;
+  } // Reset nsecs if clock regresses (new clockseq) or we've moved onto a new
+  // time interval
+
+
+  if ((dt < 0 || msecs > _lastMSecs) && options.nsecs === undefined) {
+    nsecs = 0;
+  } // Per 4.2.1.2 Throw error if too many uuids are requested
+
+
+  if (nsecs >= 10000) {
+    throw new Error("uuid.v1(): Can't create more than 10M uuids/sec");
+  }
+
+  _lastMSecs = msecs;
+  _lastNSecs = nsecs;
+  _clockseq = clockseq; // Per 4.1.4 - Convert from unix epoch to Gregorian epoch
+
+  msecs += 12219292800000; // `time_low`
+
+  const tl = ((msecs & 0xfffffff) * 10000 + nsecs) % 0x100000000;
+  b[i++] = tl >>> 24 & 0xff;
+  b[i++] = tl >>> 16 & 0xff;
+  b[i++] = tl >>> 8 & 0xff;
+  b[i++] = tl & 0xff; // `time_mid`
+
+  const tmh = msecs / 0x100000000 * 10000 & 0xfffffff;
+  b[i++] = tmh >>> 8 & 0xff;
+  b[i++] = tmh & 0xff; // `time_high_and_version`
+
+  b[i++] = tmh >>> 24 & 0xf | 0x10; // include version
+
+  b[i++] = tmh >>> 16 & 0xff; // `clock_seq_hi_and_reserved` (Per 4.2.2 - include variant)
+
+  b[i++] = clockseq >>> 8 | 0x80; // `clock_seq_low`
+
+  b[i++] = clockseq & 0xff; // `node`
+
+  for (let n = 0; n < 6; ++n) {
+    b[i + n] = node[n];
+  }
+
+  return buf || (0, _stringify.default)(b);
+}
+
+var _default = v1;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 5410:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _v = _interopRequireDefault(__nccwpck_require__(2504));
+
+var _md = _interopRequireDefault(__nccwpck_require__(7627));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const v3 = (0, _v.default)('v3', 0x30, _md.default);
+var _default = v3;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 2504:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = _default;
+exports.URL = exports.DNS = void 0;
+
+var _stringify = _interopRequireDefault(__nccwpck_require__(3538));
+
+var _parse = _interopRequireDefault(__nccwpck_require__(7267));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function stringToBytes(str) {
+  str = unescape(encodeURIComponent(str)); // UTF8 escape
+
+  const bytes = [];
+
+  for (let i = 0; i < str.length; ++i) {
+    bytes.push(str.charCodeAt(i));
+  }
+
+  return bytes;
+}
+
+const DNS = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+exports.DNS = DNS;
+const URL = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
+exports.URL = URL;
+
+function _default(name, version, hashfunc) {
+  function generateUUID(value, namespace, buf, offset) {
+    if (typeof value === 'string') {
+      value = stringToBytes(value);
+    }
+
+    if (typeof namespace === 'string') {
+      namespace = (0, _parse.default)(namespace);
+    }
+
+    if (namespace.length !== 16) {
+      throw TypeError('Namespace must be array-like (16 iterable integer values, 0-255)');
+    } // Compute hash of namespace and value, Per 4.3
+    // Future: Use spread syntax when supported on all platforms, e.g. `bytes =
+    // hashfunc([...namespace, ... value])`
+
+
+    let bytes = new Uint8Array(16 + value.length);
+    bytes.set(namespace);
+    bytes.set(value, namespace.length);
+    bytes = hashfunc(bytes);
+    bytes[6] = bytes[6] & 0x0f | version;
+    bytes[8] = bytes[8] & 0x3f | 0x80;
+
+    if (buf) {
+      offset = offset || 0;
+
+      for (let i = 0; i < 16; ++i) {
+        buf[offset + i] = bytes[i];
+      }
+
+      return buf;
+    }
+
+    return (0, _stringify.default)(bytes);
+  } // Function#name is not settable on some platforms (#270)
+
+
+  try {
+    generateUUID.name = name; // eslint-disable-next-line no-empty
+  } catch (err) {} // For CommonJS default export support
+
+
+  generateUUID.DNS = DNS;
+  generateUUID.URL = URL;
+  return generateUUID;
+}
+
+/***/ }),
+
+/***/ 4100:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _rng = _interopRequireDefault(__nccwpck_require__(397));
+
+var _stringify = _interopRequireDefault(__nccwpck_require__(3538));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function v4(options, buf, offset) {
+  options = options || {};
+
+  const rnds = options.random || (options.rng || _rng.default)(); // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
+
+
+  rnds[6] = rnds[6] & 0x0f | 0x40;
+  rnds[8] = rnds[8] & 0x3f | 0x80; // Copy bytes to buffer, if provided
+
+  if (buf) {
+    offset = offset || 0;
+
+    for (let i = 0; i < 16; ++i) {
+      buf[offset + i] = rnds[i];
+    }
+
+    return buf;
+  }
+
+  return (0, _stringify.default)(rnds);
+}
+
+var _default = v4;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 2796:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _v = _interopRequireDefault(__nccwpck_require__(2504));
+
+var _sha = _interopRequireDefault(__nccwpck_require__(8224));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const v5 = (0, _v.default)('v5', 0x50, _sha.default);
+var _default = v5;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 3705:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _regex = _interopRequireDefault(__nccwpck_require__(1315));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function validate(uuid) {
+  return typeof uuid === 'string' && _regex.default.test(uuid);
+}
+
+var _default = validate;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 4056:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _validate = _interopRequireDefault(__nccwpck_require__(3705));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function version(uuid) {
+  if (!(0, _validate.default)(uuid)) {
+    throw TypeError('Invalid UUID');
+  }
+
+  return parseInt(uuid.substr(14, 1), 16);
+}
+
+var _default = version;
+exports["default"] = _default;
 
 /***/ }),
 
@@ -9580,7 +9750,7 @@ const semver = __importStar(__nccwpck_require__(1408));
 const stream = __importStar(__nccwpck_require__(2781));
 const util = __importStar(__nccwpck_require__(3837));
 const assert_1 = __nccwpck_require__(9491);
-const v4_1 = __importDefault(__nccwpck_require__(7273));
+const v4_1 = __importDefault(__nccwpck_require__(7576));
 const exec_1 = __nccwpck_require__(6473);
 const retry_helper_1 = __nccwpck_require__(9984);
 class HTTPError extends Error {
@@ -11853,86 +12023,248 @@ function coerce (version, options) {
 
 /***/ }),
 
-/***/ 2827:
-/***/ ((module) => {
+/***/ 6455:
+/***/ ((__unused_webpack_module, exports) => {
 
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+/// <reference path="../shims-public.d.ts" />
+const listenersMap = new WeakMap();
+const abortedMap = new WeakMap();
 /**
- * Convert array of 16 byte values to UUID string format of the form:
- * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+ * An aborter instance implements AbortSignal interface, can abort HTTP requests.
+ *
+ * - Call AbortSignal.none to create a new AbortSignal instance that cannot be cancelled.
+ * Use `AbortSignal.none` when you are required to pass a cancellation token but the operation
+ * cannot or will not ever be cancelled.
+ *
+ * @example
+ * Abort without timeout
+ * ```ts
+ * await doAsyncWork(AbortSignal.none);
+ * ```
  */
-var byteToHex = [];
-for (var i = 0; i < 256; ++i) {
-  byteToHex[i] = (i + 0x100).toString(16).substr(1);
-}
-
-function bytesToUuid(buf, offset) {
-  var i = offset || 0;
-  var bth = byteToHex;
-  // join used to fix memory issue caused by concatenation: https://bugs.chromium.org/p/v8/issues/detail?id=3175#c4
-  return ([
-    bth[buf[i++]], bth[buf[i++]],
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]], '-',
-    bth[buf[i++]], bth[buf[i++]],
-    bth[buf[i++]], bth[buf[i++]],
-    bth[buf[i++]], bth[buf[i++]]
-  ]).join('');
-}
-
-module.exports = bytesToUuid;
-
-
-/***/ }),
-
-/***/ 6736:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-// Unique ID creation requires a high quality random # generator.  In node.js
-// this is pretty straight-forward - we use the crypto API.
-
-var crypto = __nccwpck_require__(6113);
-
-module.exports = function nodeRNG() {
-  return crypto.randomBytes(16);
-};
-
-
-/***/ }),
-
-/***/ 7273:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-var rng = __nccwpck_require__(6736);
-var bytesToUuid = __nccwpck_require__(2827);
-
-function v4(options, buf, offset) {
-  var i = buf && offset || 0;
-
-  if (typeof(options) == 'string') {
-    buf = options === 'binary' ? new Array(16) : null;
-    options = null;
-  }
-  options = options || {};
-
-  var rnds = options.random || (options.rng || rng)();
-
-  // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
-  rnds[6] = (rnds[6] & 0x0f) | 0x40;
-  rnds[8] = (rnds[8] & 0x3f) | 0x80;
-
-  // Copy bytes to buffer, if provided
-  if (buf) {
-    for (var ii = 0; ii < 16; ++ii) {
-      buf[i + ii] = rnds[ii];
+class AbortSignal {
+    constructor() {
+        /**
+         * onabort event listener.
+         */
+        this.onabort = null;
+        listenersMap.set(this, []);
+        abortedMap.set(this, false);
     }
-  }
-
-  return buf || bytesToUuid(rnds);
+    /**
+     * Status of whether aborted or not.
+     *
+     * @readonly
+     */
+    get aborted() {
+        if (!abortedMap.has(this)) {
+            throw new TypeError("Expected `this` to be an instance of AbortSignal.");
+        }
+        return abortedMap.get(this);
+    }
+    /**
+     * Creates a new AbortSignal instance that will never be aborted.
+     *
+     * @readonly
+     */
+    static get none() {
+        return new AbortSignal();
+    }
+    /**
+     * Added new "abort" event listener, only support "abort" event.
+     *
+     * @param _type - Only support "abort" event
+     * @param listener - The listener to be added
+     */
+    addEventListener(
+    // tslint:disable-next-line:variable-name
+    _type, listener) {
+        if (!listenersMap.has(this)) {
+            throw new TypeError("Expected `this` to be an instance of AbortSignal.");
+        }
+        const listeners = listenersMap.get(this);
+        listeners.push(listener);
+    }
+    /**
+     * Remove "abort" event listener, only support "abort" event.
+     *
+     * @param _type - Only support "abort" event
+     * @param listener - The listener to be removed
+     */
+    removeEventListener(
+    // tslint:disable-next-line:variable-name
+    _type, listener) {
+        if (!listenersMap.has(this)) {
+            throw new TypeError("Expected `this` to be an instance of AbortSignal.");
+        }
+        const listeners = listenersMap.get(this);
+        const index = listeners.indexOf(listener);
+        if (index > -1) {
+            listeners.splice(index, 1);
+        }
+    }
+    /**
+     * Dispatches a synthetic event to the AbortSignal.
+     */
+    dispatchEvent(_event) {
+        throw new Error("This is a stub dispatchEvent implementation that should not be used.  It only exists for type-checking purposes.");
+    }
+}
+/**
+ * Helper to trigger an abort event immediately, the onabort and all abort event listeners will be triggered.
+ * Will try to trigger abort event for all linked AbortSignal nodes.
+ *
+ * - If there is a timeout, the timer will be cancelled.
+ * - If aborted is true, nothing will happen.
+ *
+ * @internal
+ */
+// eslint-disable-next-line @azure/azure-sdk/ts-use-interface-parameters
+function abortSignal(signal) {
+    if (signal.aborted) {
+        return;
+    }
+    if (signal.onabort) {
+        signal.onabort.call(signal);
+    }
+    const listeners = listenersMap.get(signal);
+    if (listeners) {
+        // Create a copy of listeners so mutations to the array
+        // (e.g. via removeListener calls) don't affect the listeners
+        // we invoke.
+        listeners.slice().forEach((listener) => {
+            listener.call(signal, { type: "abort" });
+        });
+    }
+    abortedMap.set(signal, true);
 }
 
-module.exports = v4;
+// Copyright (c) Microsoft Corporation.
+/**
+ * This error is thrown when an asynchronous operation has been aborted.
+ * Check for this error by testing the `name` that the name property of the
+ * error matches `"AbortError"`.
+ *
+ * @example
+ * ```ts
+ * const controller = new AbortController();
+ * controller.abort();
+ * try {
+ *   doAsyncWork(controller.signal)
+ * } catch (e) {
+ *   if (e.name === 'AbortError') {
+ *     // handle abort error here.
+ *   }
+ * }
+ * ```
+ */
+class AbortError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "AbortError";
+    }
+}
+/**
+ * An AbortController provides an AbortSignal and the associated controls to signal
+ * that an asynchronous operation should be aborted.
+ *
+ * @example
+ * Abort an operation when another event fires
+ * ```ts
+ * const controller = new AbortController();
+ * const signal = controller.signal;
+ * doAsyncWork(signal);
+ * button.addEventListener('click', () => controller.abort());
+ * ```
+ *
+ * @example
+ * Share aborter cross multiple operations in 30s
+ * ```ts
+ * // Upload the same data to 2 different data centers at the same time,
+ * // abort another when any of them is finished
+ * const controller = AbortController.withTimeout(30 * 1000);
+ * doAsyncWork(controller.signal).then(controller.abort);
+ * doAsyncWork(controller.signal).then(controller.abort);
+ *```
+ *
+ * @example
+ * Cascaded aborting
+ * ```ts
+ * // All operations can't take more than 30 seconds
+ * const aborter = Aborter.timeout(30 * 1000);
+ *
+ * // Following 2 operations can't take more than 25 seconds
+ * await doAsyncWork(aborter.withTimeout(25 * 1000));
+ * await doAsyncWork(aborter.withTimeout(25 * 1000));
+ * ```
+ */
+class AbortController {
+    // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+    constructor(parentSignals) {
+        this._signal = new AbortSignal();
+        if (!parentSignals) {
+            return;
+        }
+        // coerce parentSignals into an array
+        if (!Array.isArray(parentSignals)) {
+            // eslint-disable-next-line prefer-rest-params
+            parentSignals = arguments;
+        }
+        for (const parentSignal of parentSignals) {
+            // if the parent signal has already had abort() called,
+            // then call abort on this signal as well.
+            if (parentSignal.aborted) {
+                this.abort();
+            }
+            else {
+                // when the parent signal aborts, this signal should as well.
+                parentSignal.addEventListener("abort", () => {
+                    this.abort();
+                });
+            }
+        }
+    }
+    /**
+     * The AbortSignal associated with this controller that will signal aborted
+     * when the abort method is called on this controller.
+     *
+     * @readonly
+     */
+    get signal() {
+        return this._signal;
+    }
+    /**
+     * Signal that any operations passed this controller's associated abort signal
+     * to cancel any remaining work and throw an `AbortError`.
+     */
+    abort() {
+        abortSignal(this._signal);
+    }
+    /**
+     * Creates a new AbortSignal instance that will abort after the provided ms.
+     * @param ms - Elapsed time in milliseconds to trigger an abort.
+     */
+    static timeout(ms) {
+        const signal = new AbortSignal();
+        const timer = setTimeout(abortSignal, ms, signal);
+        // Prevent the active Timer from keeping the Node.js event loop active.
+        if (typeof timer.unref === "function") {
+            timer.unref();
+        }
+        return signal;
+    }
+}
+
+exports.AbortController = AbortController;
+exports.AbortError = AbortError;
+exports.AbortSignal = AbortSignal;
+//# sourceMappingURL=index.js.map
 
 
 /***/ }),
@@ -11952,7 +12284,7 @@ var coreHttpCompat = __nccwpck_require__(4338);
 var coreClient = __nccwpck_require__(9384);
 var coreXml = __nccwpck_require__(8160);
 var logger$1 = __nccwpck_require__(865);
-var abortController = __nccwpck_require__(2046);
+var abortController = __nccwpck_require__(6455);
 var crypto = __nccwpck_require__(6113);
 var coreTracing = __nccwpck_require__(3099);
 var stream = __nccwpck_require__(2781);
@@ -36559,252 +36891,6 @@ exports.newPipeline = newPipeline;
 
 /***/ }),
 
-/***/ 2046:
-/***/ ((__unused_webpack_module, exports) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT license.
-/// <reference path="../shims-public.d.ts" />
-const listenersMap = new WeakMap();
-const abortedMap = new WeakMap();
-/**
- * An aborter instance implements AbortSignal interface, can abort HTTP requests.
- *
- * - Call AbortSignal.none to create a new AbortSignal instance that cannot be cancelled.
- * Use `AbortSignal.none` when you are required to pass a cancellation token but the operation
- * cannot or will not ever be cancelled.
- *
- * @example
- * Abort without timeout
- * ```ts
- * await doAsyncWork(AbortSignal.none);
- * ```
- */
-class AbortSignal {
-    constructor() {
-        /**
-         * onabort event listener.
-         */
-        this.onabort = null;
-        listenersMap.set(this, []);
-        abortedMap.set(this, false);
-    }
-    /**
-     * Status of whether aborted or not.
-     *
-     * @readonly
-     */
-    get aborted() {
-        if (!abortedMap.has(this)) {
-            throw new TypeError("Expected `this` to be an instance of AbortSignal.");
-        }
-        return abortedMap.get(this);
-    }
-    /**
-     * Creates a new AbortSignal instance that will never be aborted.
-     *
-     * @readonly
-     */
-    static get none() {
-        return new AbortSignal();
-    }
-    /**
-     * Added new "abort" event listener, only support "abort" event.
-     *
-     * @param _type - Only support "abort" event
-     * @param listener - The listener to be added
-     */
-    addEventListener(
-    // tslint:disable-next-line:variable-name
-    _type, listener) {
-        if (!listenersMap.has(this)) {
-            throw new TypeError("Expected `this` to be an instance of AbortSignal.");
-        }
-        const listeners = listenersMap.get(this);
-        listeners.push(listener);
-    }
-    /**
-     * Remove "abort" event listener, only support "abort" event.
-     *
-     * @param _type - Only support "abort" event
-     * @param listener - The listener to be removed
-     */
-    removeEventListener(
-    // tslint:disable-next-line:variable-name
-    _type, listener) {
-        if (!listenersMap.has(this)) {
-            throw new TypeError("Expected `this` to be an instance of AbortSignal.");
-        }
-        const listeners = listenersMap.get(this);
-        const index = listeners.indexOf(listener);
-        if (index > -1) {
-            listeners.splice(index, 1);
-        }
-    }
-    /**
-     * Dispatches a synthetic event to the AbortSignal.
-     */
-    dispatchEvent(_event) {
-        throw new Error("This is a stub dispatchEvent implementation that should not be used.  It only exists for type-checking purposes.");
-    }
-}
-/**
- * Helper to trigger an abort event immediately, the onabort and all abort event listeners will be triggered.
- * Will try to trigger abort event for all linked AbortSignal nodes.
- *
- * - If there is a timeout, the timer will be cancelled.
- * - If aborted is true, nothing will happen.
- *
- * @internal
- */
-// eslint-disable-next-line @azure/azure-sdk/ts-use-interface-parameters
-function abortSignal(signal) {
-    if (signal.aborted) {
-        return;
-    }
-    if (signal.onabort) {
-        signal.onabort.call(signal);
-    }
-    const listeners = listenersMap.get(signal);
-    if (listeners) {
-        // Create a copy of listeners so mutations to the array
-        // (e.g. via removeListener calls) don't affect the listeners
-        // we invoke.
-        listeners.slice().forEach((listener) => {
-            listener.call(signal, { type: "abort" });
-        });
-    }
-    abortedMap.set(signal, true);
-}
-
-// Copyright (c) Microsoft Corporation.
-/**
- * This error is thrown when an asynchronous operation has been aborted.
- * Check for this error by testing the `name` that the name property of the
- * error matches `"AbortError"`.
- *
- * @example
- * ```ts
- * const controller = new AbortController();
- * controller.abort();
- * try {
- *   doAsyncWork(controller.signal)
- * } catch (e) {
- *   if (e.name === 'AbortError') {
- *     // handle abort error here.
- *   }
- * }
- * ```
- */
-class AbortError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = "AbortError";
-    }
-}
-/**
- * An AbortController provides an AbortSignal and the associated controls to signal
- * that an asynchronous operation should be aborted.
- *
- * @example
- * Abort an operation when another event fires
- * ```ts
- * const controller = new AbortController();
- * const signal = controller.signal;
- * doAsyncWork(signal);
- * button.addEventListener('click', () => controller.abort());
- * ```
- *
- * @example
- * Share aborter cross multiple operations in 30s
- * ```ts
- * // Upload the same data to 2 different data centers at the same time,
- * // abort another when any of them is finished
- * const controller = AbortController.withTimeout(30 * 1000);
- * doAsyncWork(controller.signal).then(controller.abort);
- * doAsyncWork(controller.signal).then(controller.abort);
- *```
- *
- * @example
- * Cascaded aborting
- * ```ts
- * // All operations can't take more than 30 seconds
- * const aborter = Aborter.timeout(30 * 1000);
- *
- * // Following 2 operations can't take more than 25 seconds
- * await doAsyncWork(aborter.withTimeout(25 * 1000));
- * await doAsyncWork(aborter.withTimeout(25 * 1000));
- * ```
- */
-class AbortController {
-    // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-    constructor(parentSignals) {
-        this._signal = new AbortSignal();
-        if (!parentSignals) {
-            return;
-        }
-        // coerce parentSignals into an array
-        if (!Array.isArray(parentSignals)) {
-            // eslint-disable-next-line prefer-rest-params
-            parentSignals = arguments;
-        }
-        for (const parentSignal of parentSignals) {
-            // if the parent signal has already had abort() called,
-            // then call abort on this signal as well.
-            if (parentSignal.aborted) {
-                this.abort();
-            }
-            else {
-                // when the parent signal aborts, this signal should as well.
-                parentSignal.addEventListener("abort", () => {
-                    this.abort();
-                });
-            }
-        }
-    }
-    /**
-     * The AbortSignal associated with this controller that will signal aborted
-     * when the abort method is called on this controller.
-     *
-     * @readonly
-     */
-    get signal() {
-        return this._signal;
-    }
-    /**
-     * Signal that any operations passed this controller's associated abort signal
-     * to cancel any remaining work and throw an `AbortError`.
-     */
-    abort() {
-        abortSignal(this._signal);
-    }
-    /**
-     * Creates a new AbortSignal instance that will abort after the provided ms.
-     * @param ms - Elapsed time in milliseconds to trigger an abort.
-     */
-    static timeout(ms) {
-        const signal = new AbortSignal();
-        const timer = setTimeout(abortSignal, ms, signal);
-        // Prevent the active Timer from keeping the Node.js event loop active.
-        if (typeof timer.unref === "function") {
-            timer.unref();
-        }
-        return signal;
-    }
-}
-
-exports.AbortController = AbortController;
-exports.AbortError = AbortError;
-exports.AbortSignal = AbortSignal;
-//# sourceMappingURL=index.js.map
-
-
-/***/ }),
-
 /***/ 6258:
 /***/ ((module) => {
 
@@ -49860,7 +49946,7 @@ if (util.nodeMajor > 16 || (util.nodeMajor === 16 && util.nodeMinor >= 8)) {
   module.exports.Headers = __nccwpck_require__(8031).Headers
   module.exports.Response = __nccwpck_require__(2620).Response
   module.exports.Request = __nccwpck_require__(6255).Request
-  module.exports.FormData = __nccwpck_require__(3705).FormData
+  module.exports.FormData = __nccwpck_require__(3008).FormData
   module.exports.File = __nccwpck_require__(5119).File
   module.exports.FileReader = __nccwpck_require__(9051).FileReader
 
@@ -57757,7 +57843,7 @@ const {
   createDeferredPromise,
   fullyReadBody
 } = __nccwpck_require__(3640)
-const { FormData } = __nccwpck_require__(3705)
+const { FormData } = __nccwpck_require__(3008)
 const { kState } = __nccwpck_require__(8246)
 const { webidl } = __nccwpck_require__(5989)
 const { DOMException, structuredClone } = __nccwpck_require__(9602)
@@ -59497,7 +59583,7 @@ module.exports = { File, FileLike, isFileLike }
 
 /***/ }),
 
-/***/ 3705:
+/***/ 3008:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 
@@ -63545,7 +63631,7 @@ const {
 } = __nccwpck_require__(9602)
 const { kState, kHeaders, kGuard, kRealm } = __nccwpck_require__(8246)
 const { webidl } = __nccwpck_require__(5989)
-const { FormData } = __nccwpck_require__(3705)
+const { FormData } = __nccwpck_require__(3008)
 const { getGlobalOrigin } = __nccwpck_require__(3913)
 const { URLSerializer } = __nccwpck_require__(8093)
 const { kHeadersList, kConstruct } = __nccwpck_require__(5574)
@@ -71850,634 +71936,218 @@ exports.getUserAgent = getUserAgent;
 
 /***/ }),
 
-/***/ 1972:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+/***/ 4806:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
+var v1 = __nccwpck_require__(7583);
+var v4 = __nccwpck_require__(7576);
 
+var uuid = v4;
+uuid.v1 = v1;
+uuid.v4 = v4;
 
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-Object.defineProperty(exports, "v1", ({
-  enumerable: true,
-  get: function () {
-    return _v.default;
-  }
-}));
-Object.defineProperty(exports, "v3", ({
-  enumerable: true,
-  get: function () {
-    return _v2.default;
-  }
-}));
-Object.defineProperty(exports, "v4", ({
-  enumerable: true,
-  get: function () {
-    return _v3.default;
-  }
-}));
-Object.defineProperty(exports, "v5", ({
-  enumerable: true,
-  get: function () {
-    return _v4.default;
-  }
-}));
-Object.defineProperty(exports, "NIL", ({
-  enumerable: true,
-  get: function () {
-    return _nil.default;
-  }
-}));
-Object.defineProperty(exports, "version", ({
-  enumerable: true,
-  get: function () {
-    return _version.default;
-  }
-}));
-Object.defineProperty(exports, "validate", ({
-  enumerable: true,
-  get: function () {
-    return _validate.default;
-  }
-}));
-Object.defineProperty(exports, "stringify", ({
-  enumerable: true,
-  get: function () {
-    return _stringify.default;
-  }
-}));
-Object.defineProperty(exports, "parse", ({
-  enumerable: true,
-  get: function () {
-    return _parse.default;
-  }
-}));
+module.exports = uuid;
 
-var _v = _interopRequireDefault(__nccwpck_require__(1265));
-
-var _v2 = _interopRequireDefault(__nccwpck_require__(5203));
-
-var _v3 = _interopRequireDefault(__nccwpck_require__(1222));
-
-var _v4 = _interopRequireDefault(__nccwpck_require__(6193));
-
-var _nil = _interopRequireDefault(__nccwpck_require__(2110));
-
-var _version = _interopRequireDefault(__nccwpck_require__(5988));
-
-var _validate = _interopRequireDefault(__nccwpck_require__(6350));
-
-var _stringify = _interopRequireDefault(__nccwpck_require__(5997));
-
-var _parse = _interopRequireDefault(__nccwpck_require__(4713));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /***/ }),
 
-/***/ 8374:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-
-var _crypto = _interopRequireDefault(__nccwpck_require__(6113));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function md5(bytes) {
-  if (Array.isArray(bytes)) {
-    bytes = Buffer.from(bytes);
-  } else if (typeof bytes === 'string') {
-    bytes = Buffer.from(bytes, 'utf8');
-  }
-
-  return _crypto.default.createHash('md5').update(bytes).digest();
-}
-
-var _default = md5;
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ 2110:
-/***/ ((__unused_webpack_module, exports) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-var _default = '00000000-0000-0000-0000-000000000000';
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ 4713:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-
-var _validate = _interopRequireDefault(__nccwpck_require__(6350));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function parse(uuid) {
-  if (!(0, _validate.default)(uuid)) {
-    throw TypeError('Invalid UUID');
-  }
-
-  let v;
-  const arr = new Uint8Array(16); // Parse ########-....-....-....-............
-
-  arr[0] = (v = parseInt(uuid.slice(0, 8), 16)) >>> 24;
-  arr[1] = v >>> 16 & 0xff;
-  arr[2] = v >>> 8 & 0xff;
-  arr[3] = v & 0xff; // Parse ........-####-....-....-............
-
-  arr[4] = (v = parseInt(uuid.slice(9, 13), 16)) >>> 8;
-  arr[5] = v & 0xff; // Parse ........-....-####-....-............
-
-  arr[6] = (v = parseInt(uuid.slice(14, 18), 16)) >>> 8;
-  arr[7] = v & 0xff; // Parse ........-....-....-####-............
-
-  arr[8] = (v = parseInt(uuid.slice(19, 23), 16)) >>> 8;
-  arr[9] = v & 0xff; // Parse ........-....-....-....-############
-  // (Use "/" to avoid 32-bit truncation when bit-shifting high-order bytes)
-
-  arr[10] = (v = parseInt(uuid.slice(24, 36), 16)) / 0x10000000000 & 0xff;
-  arr[11] = v / 0x100000000 & 0xff;
-  arr[12] = v >>> 24 & 0xff;
-  arr[13] = v >>> 16 & 0xff;
-  arr[14] = v >>> 8 & 0xff;
-  arr[15] = v & 0xff;
-  return arr;
-}
-
-var _default = parse;
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ 5496:
-/***/ ((__unused_webpack_module, exports) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-var _default = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ 2127:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = rng;
-
-var _crypto = _interopRequireDefault(__nccwpck_require__(6113));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-const rnds8Pool = new Uint8Array(256); // # of random values to pre-allocate
-
-let poolPtr = rnds8Pool.length;
-
-function rng() {
-  if (poolPtr > rnds8Pool.length - 16) {
-    _crypto.default.randomFillSync(rnds8Pool);
-
-    poolPtr = 0;
-  }
-
-  return rnds8Pool.slice(poolPtr, poolPtr += 16);
-}
-
-/***/ }),
-
-/***/ 170:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-
-var _crypto = _interopRequireDefault(__nccwpck_require__(6113));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function sha1(bytes) {
-  if (Array.isArray(bytes)) {
-    bytes = Buffer.from(bytes);
-  } else if (typeof bytes === 'string') {
-    bytes = Buffer.from(bytes, 'utf8');
-  }
-
-  return _crypto.default.createHash('sha1').update(bytes).digest();
-}
-
-var _default = sha1;
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ 5997:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-
-var _validate = _interopRequireDefault(__nccwpck_require__(6350));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+/***/ 3042:
+/***/ ((module) => {
 
 /**
  * Convert array of 16 byte values to UUID string format of the form:
  * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
  */
-const byteToHex = [];
-
-for (let i = 0; i < 256; ++i) {
-  byteToHex.push((i + 0x100).toString(16).substr(1));
+var byteToHex = [];
+for (var i = 0; i < 256; ++i) {
+  byteToHex[i] = (i + 0x100).toString(16).substr(1);
 }
 
-function stringify(arr, offset = 0) {
-  // Note: Be careful editing this code!  It's been tuned for performance
-  // and works in ways you may not expect. See https://github.com/uuidjs/uuid/pull/434
-  const uuid = (byteToHex[arr[offset + 0]] + byteToHex[arr[offset + 1]] + byteToHex[arr[offset + 2]] + byteToHex[arr[offset + 3]] + '-' + byteToHex[arr[offset + 4]] + byteToHex[arr[offset + 5]] + '-' + byteToHex[arr[offset + 6]] + byteToHex[arr[offset + 7]] + '-' + byteToHex[arr[offset + 8]] + byteToHex[arr[offset + 9]] + '-' + byteToHex[arr[offset + 10]] + byteToHex[arr[offset + 11]] + byteToHex[arr[offset + 12]] + byteToHex[arr[offset + 13]] + byteToHex[arr[offset + 14]] + byteToHex[arr[offset + 15]]).toLowerCase(); // Consistency check for valid UUID.  If this throws, it's likely due to one
-  // of the following:
-  // - One or more input array values don't map to a hex octet (leading to
-  // "undefined" in the uuid)
-  // - Invalid input values for the RFC `version` or `variant` fields
-
-  if (!(0, _validate.default)(uuid)) {
-    throw TypeError('Stringified UUID is invalid');
-  }
-
-  return uuid;
+function bytesToUuid(buf, offset) {
+  var i = offset || 0;
+  var bth = byteToHex;
+  // join used to fix memory issue caused by concatenation: https://bugs.chromium.org/p/v8/issues/detail?id=3175#c4
+  return ([
+    bth[buf[i++]], bth[buf[i++]],
+    bth[buf[i++]], bth[buf[i++]], '-',
+    bth[buf[i++]], bth[buf[i++]], '-',
+    bth[buf[i++]], bth[buf[i++]], '-',
+    bth[buf[i++]], bth[buf[i++]], '-',
+    bth[buf[i++]], bth[buf[i++]],
+    bth[buf[i++]], bth[buf[i++]],
+    bth[buf[i++]], bth[buf[i++]]
+  ]).join('');
 }
 
-var _default = stringify;
-exports["default"] = _default;
+module.exports = bytesToUuid;
+
 
 /***/ }),
 
-/***/ 1265:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+/***/ 8074:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+// Unique ID creation requires a high quality random # generator.  In node.js
+// this is pretty straight-forward - we use the crypto API.
+
+var crypto = __nccwpck_require__(6113);
+
+module.exports = function nodeRNG() {
+  return crypto.randomBytes(16);
+};
 
 
+/***/ }),
 
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
+/***/ 7583:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-var _rng = _interopRequireDefault(__nccwpck_require__(2127));
-
-var _stringify = _interopRequireDefault(__nccwpck_require__(5997));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+var rng = __nccwpck_require__(8074);
+var bytesToUuid = __nccwpck_require__(3042);
 
 // **`v1()` - Generate time-based UUID**
 //
 // Inspired by https://github.com/LiosK/UUID.js
 // and http://docs.python.org/library/uuid.html
-let _nodeId;
 
-let _clockseq; // Previous uuid creation time
+var _nodeId;
+var _clockseq;
 
+// Previous uuid creation time
+var _lastMSecs = 0;
+var _lastNSecs = 0;
 
-let _lastMSecs = 0;
-let _lastNSecs = 0; // See https://github.com/uuidjs/uuid for API details
-
+// See https://github.com/uuidjs/uuid for API details
 function v1(options, buf, offset) {
-  let i = buf && offset || 0;
-  const b = buf || new Array(16);
+  var i = buf && offset || 0;
+  var b = buf || [];
+
   options = options || {};
-  let node = options.node || _nodeId;
-  let clockseq = options.clockseq !== undefined ? options.clockseq : _clockseq; // node and clockseq need to be initialized to random values if they're not
+  var node = options.node || _nodeId;
+  var clockseq = options.clockseq !== undefined ? options.clockseq : _clockseq;
+
+  // node and clockseq need to be initialized to random values if they're not
   // specified.  We do this lazily to minimize issues related to insufficient
   // system entropy.  See #189
-
   if (node == null || clockseq == null) {
-    const seedBytes = options.random || (options.rng || _rng.default)();
-
+    var seedBytes = rng();
     if (node == null) {
       // Per 4.5, create and 48-bit node id, (47 random bits + multicast bit = 1)
-      node = _nodeId = [seedBytes[0] | 0x01, seedBytes[1], seedBytes[2], seedBytes[3], seedBytes[4], seedBytes[5]];
+      node = _nodeId = [
+        seedBytes[0] | 0x01,
+        seedBytes[1], seedBytes[2], seedBytes[3], seedBytes[4], seedBytes[5]
+      ];
     }
-
     if (clockseq == null) {
       // Per 4.2.2, randomize (14 bit) clockseq
       clockseq = _clockseq = (seedBytes[6] << 8 | seedBytes[7]) & 0x3fff;
     }
-  } // UUID timestamps are 100 nano-second units since the Gregorian epoch,
+  }
+
+  // UUID timestamps are 100 nano-second units since the Gregorian epoch,
   // (1582-10-15 00:00).  JSNumbers aren't precise enough for this, so
   // time is handled internally as 'msecs' (integer milliseconds) and 'nsecs'
   // (100-nanoseconds offset from msecs) since unix epoch, 1970-01-01 00:00.
+  var msecs = options.msecs !== undefined ? options.msecs : new Date().getTime();
 
-
-  let msecs = options.msecs !== undefined ? options.msecs : Date.now(); // Per 4.2.1.2, use count of uuid's generated during the current clock
+  // Per 4.2.1.2, use count of uuid's generated during the current clock
   // cycle to simulate higher resolution clock
+  var nsecs = options.nsecs !== undefined ? options.nsecs : _lastNSecs + 1;
 
-  let nsecs = options.nsecs !== undefined ? options.nsecs : _lastNSecs + 1; // Time since last uuid creation (in msecs)
+  // Time since last uuid creation (in msecs)
+  var dt = (msecs - _lastMSecs) + (nsecs - _lastNSecs)/10000;
 
-  const dt = msecs - _lastMSecs + (nsecs - _lastNSecs) / 10000; // Per 4.2.1.2, Bump clockseq on clock regression
-
+  // Per 4.2.1.2, Bump clockseq on clock regression
   if (dt < 0 && options.clockseq === undefined) {
     clockseq = clockseq + 1 & 0x3fff;
-  } // Reset nsecs if clock regresses (new clockseq) or we've moved onto a new
+  }
+
+  // Reset nsecs if clock regresses (new clockseq) or we've moved onto a new
   // time interval
-
-
   if ((dt < 0 || msecs > _lastMSecs) && options.nsecs === undefined) {
     nsecs = 0;
-  } // Per 4.2.1.2 Throw error if too many uuids are requested
+  }
 
-
+  // Per 4.2.1.2 Throw error if too many uuids are requested
   if (nsecs >= 10000) {
-    throw new Error("uuid.v1(): Can't create more than 10M uuids/sec");
+    throw new Error('uuid.v1(): Can\'t create more than 10M uuids/sec');
   }
 
   _lastMSecs = msecs;
   _lastNSecs = nsecs;
-  _clockseq = clockseq; // Per 4.1.4 - Convert from unix epoch to Gregorian epoch
+  _clockseq = clockseq;
 
-  msecs += 12219292800000; // `time_low`
+  // Per 4.1.4 - Convert from unix epoch to Gregorian epoch
+  msecs += 12219292800000;
 
-  const tl = ((msecs & 0xfffffff) * 10000 + nsecs) % 0x100000000;
+  // `time_low`
+  var tl = ((msecs & 0xfffffff) * 10000 + nsecs) % 0x100000000;
   b[i++] = tl >>> 24 & 0xff;
   b[i++] = tl >>> 16 & 0xff;
   b[i++] = tl >>> 8 & 0xff;
-  b[i++] = tl & 0xff; // `time_mid`
+  b[i++] = tl & 0xff;
 
-  const tmh = msecs / 0x100000000 * 10000 & 0xfffffff;
+  // `time_mid`
+  var tmh = (msecs / 0x100000000 * 10000) & 0xfffffff;
   b[i++] = tmh >>> 8 & 0xff;
-  b[i++] = tmh & 0xff; // `time_high_and_version`
+  b[i++] = tmh & 0xff;
 
+  // `time_high_and_version`
   b[i++] = tmh >>> 24 & 0xf | 0x10; // include version
+  b[i++] = tmh >>> 16 & 0xff;
 
-  b[i++] = tmh >>> 16 & 0xff; // `clock_seq_hi_and_reserved` (Per 4.2.2 - include variant)
+  // `clock_seq_hi_and_reserved` (Per 4.2.2 - include variant)
+  b[i++] = clockseq >>> 8 | 0x80;
 
-  b[i++] = clockseq >>> 8 | 0x80; // `clock_seq_low`
+  // `clock_seq_low`
+  b[i++] = clockseq & 0xff;
 
-  b[i++] = clockseq & 0xff; // `node`
-
-  for (let n = 0; n < 6; ++n) {
+  // `node`
+  for (var n = 0; n < 6; ++n) {
     b[i + n] = node[n];
   }
 
-  return buf || (0, _stringify.default)(b);
+  return buf ? buf : bytesToUuid(b);
 }
 
-var _default = v1;
-exports["default"] = _default;
+module.exports = v1;
+
 
 /***/ }),
 
-/***/ 5203:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+/***/ 7576:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-
-var _v = _interopRequireDefault(__nccwpck_require__(9952));
-
-var _md = _interopRequireDefault(__nccwpck_require__(8374));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-const v3 = (0, _v.default)('v3', 0x30, _md.default);
-var _default = v3;
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ 9952:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = _default;
-exports.URL = exports.DNS = void 0;
-
-var _stringify = _interopRequireDefault(__nccwpck_require__(5997));
-
-var _parse = _interopRequireDefault(__nccwpck_require__(4713));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function stringToBytes(str) {
-  str = unescape(encodeURIComponent(str)); // UTF8 escape
-
-  const bytes = [];
-
-  for (let i = 0; i < str.length; ++i) {
-    bytes.push(str.charCodeAt(i));
-  }
-
-  return bytes;
-}
-
-const DNS = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
-exports.DNS = DNS;
-const URL = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
-exports.URL = URL;
-
-function _default(name, version, hashfunc) {
-  function generateUUID(value, namespace, buf, offset) {
-    if (typeof value === 'string') {
-      value = stringToBytes(value);
-    }
-
-    if (typeof namespace === 'string') {
-      namespace = (0, _parse.default)(namespace);
-    }
-
-    if (namespace.length !== 16) {
-      throw TypeError('Namespace must be array-like (16 iterable integer values, 0-255)');
-    } // Compute hash of namespace and value, Per 4.3
-    // Future: Use spread syntax when supported on all platforms, e.g. `bytes =
-    // hashfunc([...namespace, ... value])`
-
-
-    let bytes = new Uint8Array(16 + value.length);
-    bytes.set(namespace);
-    bytes.set(value, namespace.length);
-    bytes = hashfunc(bytes);
-    bytes[6] = bytes[6] & 0x0f | version;
-    bytes[8] = bytes[8] & 0x3f | 0x80;
-
-    if (buf) {
-      offset = offset || 0;
-
-      for (let i = 0; i < 16; ++i) {
-        buf[offset + i] = bytes[i];
-      }
-
-      return buf;
-    }
-
-    return (0, _stringify.default)(bytes);
-  } // Function#name is not settable on some platforms (#270)
-
-
-  try {
-    generateUUID.name = name; // eslint-disable-next-line no-empty
-  } catch (err) {} // For CommonJS default export support
-
-
-  generateUUID.DNS = DNS;
-  generateUUID.URL = URL;
-  return generateUUID;
-}
-
-/***/ }),
-
-/***/ 1222:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-
-var _rng = _interopRequireDefault(__nccwpck_require__(2127));
-
-var _stringify = _interopRequireDefault(__nccwpck_require__(5997));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+var rng = __nccwpck_require__(8074);
+var bytesToUuid = __nccwpck_require__(3042);
 
 function v4(options, buf, offset) {
+  var i = buf && offset || 0;
+
+  if (typeof(options) == 'string') {
+    buf = options === 'binary' ? new Array(16) : null;
+    options = null;
+  }
   options = options || {};
 
-  const rnds = options.random || (options.rng || _rng.default)(); // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
+  var rnds = options.random || (options.rng || rng)();
 
+  // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
+  rnds[6] = (rnds[6] & 0x0f) | 0x40;
+  rnds[8] = (rnds[8] & 0x3f) | 0x80;
 
-  rnds[6] = rnds[6] & 0x0f | 0x40;
-  rnds[8] = rnds[8] & 0x3f | 0x80; // Copy bytes to buffer, if provided
-
+  // Copy bytes to buffer, if provided
   if (buf) {
-    offset = offset || 0;
-
-    for (let i = 0; i < 16; ++i) {
-      buf[offset + i] = rnds[i];
+    for (var ii = 0; ii < 16; ++ii) {
+      buf[i + ii] = rnds[ii];
     }
-
-    return buf;
   }
 
-  return (0, _stringify.default)(rnds);
+  return buf || bytesToUuid(rnds);
 }
 
-var _default = v4;
-exports["default"] = _default;
+module.exports = v4;
 
-/***/ }),
-
-/***/ 6193:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-
-var _v = _interopRequireDefault(__nccwpck_require__(9952));
-
-var _sha = _interopRequireDefault(__nccwpck_require__(170));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-const v5 = (0, _v.default)('v5', 0x50, _sha.default);
-var _default = v5;
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ 6350:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-
-var _regex = _interopRequireDefault(__nccwpck_require__(5496));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function validate(uuid) {
-  return typeof uuid === 'string' && _regex.default.test(uuid);
-}
-
-var _default = validate;
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ 5988:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports["default"] = void 0;
-
-var _validate = _interopRequireDefault(__nccwpck_require__(6350));
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function version(uuid) {
-  if (!(0, _validate.default)(uuid)) {
-    throw TypeError('Invalid UUID');
-  }
-
-  return parseInt(uuid.substr(14, 1), 16);
-}
-
-var _default = version;
-exports["default"] = _default;
 
 /***/ }),
 
@@ -72778,57 +72448,6 @@ module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("worker_threa
 /***/ ((module) => {
 
 module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("zlib");
-
-/***/ }),
-
-/***/ 6548:
-/***/ ((__unused_webpack_module, exports) => {
-
-
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT license.
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.AbortError = void 0;
-/**
- * This error is thrown when an asynchronous operation has been aborted.
- * Check for this error by testing the `name` that the name property of the
- * error matches `"AbortError"`.
- *
- * @example
- * ```ts
- * const controller = new AbortController();
- * controller.abort();
- * try {
- *   doAsyncWork(controller.signal)
- * } catch (e) {
- *   if (e.name === 'AbortError') {
- *     // handle abort error here.
- *   }
- * }
- * ```
- */
-class AbortError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = "AbortError";
-    }
-}
-exports.AbortError = AbortError;
-//# sourceMappingURL=AbortError.js.map
-
-/***/ }),
-
-/***/ 3765:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT license.
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.AbortError = void 0;
-var AbortError_js_1 = __nccwpck_require__(6548);
-Object.defineProperty(exports, "AbortError", ({ enumerable: true, get: function () { return AbortError_js_1.AbortError; } }));
-//# sourceMappingURL=index.js.map
 
 /***/ }),
 
@@ -77704,7 +77323,7 @@ const http = tslib_1.__importStar(__nccwpck_require__(8849));
 const https = tslib_1.__importStar(__nccwpck_require__(2286));
 const zlib = tslib_1.__importStar(__nccwpck_require__(5628));
 const node_stream_1 = __nccwpck_require__(4492);
-const abort_controller_1 = __nccwpck_require__(3765);
+const abort_controller_1 = __nccwpck_require__(7904);
 const httpHeaders_js_1 = __nccwpck_require__(5315);
 const restError_js_1 = __nccwpck_require__(6993);
 const log_js_1 = __nccwpck_require__(4170);
@@ -79226,7 +78845,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.retryPolicy = void 0;
 const helpers_js_1 = __nccwpck_require__(4889);
 const logger_1 = __nccwpck_require__(865);
-const abort_controller_1 = __nccwpck_require__(3765);
+const abort_controller_1 = __nccwpck_require__(7904);
 const constants_js_1 = __nccwpck_require__(6111);
 const retryPolicyLogger = (0, logger_1.createClientLogger)("core-rest-pipeline retryPolicy");
 /**
@@ -80080,7 +79699,7 @@ exports.createFile = createFile;
 // Licensed under the MIT license.
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.parseHeaderValueAsNumber = exports.delay = void 0;
-const abort_controller_1 = __nccwpck_require__(3765);
+const abort_controller_1 = __nccwpck_require__(7904);
 const StandardAbortMessage = "The operation was aborted.";
 /**
  * A wrapper for setTimeout that resolves a promise after delayInMs milliseconds.
@@ -80573,6 +80192,57 @@ exports.setPlatformSpecificData = setPlatformSpecificData;
 
 /***/ }),
 
+/***/ 1801:
+/***/ ((__unused_webpack_module, exports) => {
+
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.AbortError = void 0;
+/**
+ * This error is thrown when an asynchronous operation has been aborted.
+ * Check for this error by testing the `name` that the name property of the
+ * error matches `"AbortError"`.
+ *
+ * @example
+ * ```ts
+ * const controller = new AbortController();
+ * controller.abort();
+ * try {
+ *   doAsyncWork(controller.signal)
+ * } catch (e) {
+ *   if (e.name === 'AbortError') {
+ *     // handle abort error here.
+ *   }
+ * }
+ * ```
+ */
+class AbortError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "AbortError";
+    }
+}
+exports.AbortError = AbortError;
+//# sourceMappingURL=AbortError.js.map
+
+/***/ }),
+
+/***/ 7904:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.AbortError = void 0;
+var AbortError_js_1 = __nccwpck_require__(1801);
+Object.defineProperty(exports, "AbortError", ({ enumerable: true, get: function () { return AbortError_js_1.AbortError; } }));
+//# sourceMappingURL=index.js.map
+
+/***/ }),
+
 /***/ 3099:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -80951,7 +80621,7 @@ exports.isReactNative = typeof navigator !== "undefined" && (navigator === null 
 // Licensed under the MIT license.
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.createAbortablePromise = void 0;
-const abort_controller_1 = __nccwpck_require__(3765);
+const abort_controller_1 = __nccwpck_require__(825);
 /**
  * Creates an abortable promise.
  * @param buildPromise - A function that takes the resolve and reject functions as parameters.
@@ -81284,6 +80954,57 @@ function randomUUID() {
 }
 exports.randomUUID = randomUUID;
 //# sourceMappingURL=uuidUtils.js.map
+
+/***/ }),
+
+/***/ 4102:
+/***/ ((__unused_webpack_module, exports) => {
+
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.AbortError = void 0;
+/**
+ * This error is thrown when an asynchronous operation has been aborted.
+ * Check for this error by testing the `name` that the name property of the
+ * error matches `"AbortError"`.
+ *
+ * @example
+ * ```ts
+ * const controller = new AbortController();
+ * controller.abort();
+ * try {
+ *   doAsyncWork(controller.signal)
+ * } catch (e) {
+ *   if (e.name === 'AbortError') {
+ *     // handle abort error here.
+ *   }
+ * }
+ * ```
+ */
+class AbortError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "AbortError";
+    }
+}
+exports.AbortError = AbortError;
+//# sourceMappingURL=AbortError.js.map
+
+/***/ }),
+
+/***/ 825:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.AbortError = void 0;
+var AbortError_js_1 = __nccwpck_require__(4102);
+Object.defineProperty(exports, "AbortError", ({ enumerable: true, get: function () { return AbortError_js_1.AbortError; } }));
+//# sourceMappingURL=index.js.map
 
 /***/ }),
 
@@ -91951,6 +91672,10 @@ const OPAM_ROOT = PLATFORM === "windows"
     ? // [HACK] https://github.com/ocaml/setup-ocaml/pull/55
         external_node_path_namespaceObject.join("D:", ".opam")
     : external_node_path_namespaceObject.join(external_node_os_.homedir(), ".opam");
+const MANAGE_CYGWIN = lib_core.getBooleanInput("manage-cygwin", {
+    required: false,
+    trimWhitespace: true,
+});
 const ALLOW_PRERELEASE_OPAM = lib_core.getBooleanInput("allow-prerelease-opam", {
     required: false,
     trimWhitespace: true,
@@ -92112,7 +91837,7 @@ async function initializeOpam() {
             }
         }
         const extraOptions = [];
-        if (PLATFORM === "windows") {
+        if (PLATFORM === "windows" && MANAGE_CYGWIN) {
             extraOptions.push("--cygwin-local-install");
             extraOptions.push(`--cygwin-location=${CYGWIN_ROOT}`);
         }
@@ -109716,7 +109441,7 @@ async function restoreOpamCache() {
 }
 async function restoreOpamCaches() {
     return await lib_core.group("Retrieve the opam cache", async () => {
-        const [opamCacheHit, cygwinCacheHit] = await Promise.all(PLATFORM === "windows"
+        const [opamCacheHit, cygwinCacheHit] = await Promise.all(PLATFORM === "windows" && MANAGE_CYGWIN
             ? [restoreOpamCache(), restoreCygwinCache()]
             : [restoreOpamCache()]);
         return { opamCacheHit, cygwinCacheHit };
@@ -109835,7 +109560,7 @@ async function installer() {
         });
     }
     const { opamCacheHit, cygwinCacheHit } = await restoreOpamCaches();
-    if (PLATFORM === "windows") {
+    if (PLATFORM === "windows" && MANAGE_CYGWIN) {
         if (!cygwinCacheHit) {
             await setupCygwin();
             await saveCygwinCache();
