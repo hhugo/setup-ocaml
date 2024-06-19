@@ -13,6 +13,7 @@ import {
   GITHUB_TOKEN,
   OPAM_DISABLE_SANDBOXING,
   PLATFORM,
+  MANAGE_CYGWIN,
 } from "./constants.js";
 import {
   installUnixSystemPackages,
@@ -98,7 +99,7 @@ async function initializeOpam() {
       }
     }
     const extraOptions = [];
-    if (PLATFORM === "windows") {
+    if (PLATFORM === "windows" && MANAGE_CYGWIN) {
       extraOptions.push("--cygwin-local-install");
       extraOptions.push(`--cygwin-location=${CYGWIN_ROOT}`);
     }

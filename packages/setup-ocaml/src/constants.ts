@@ -74,6 +74,14 @@ export const OPAM_ROOT =
       path.join("D:", ".opam")
     : path.join(os.homedir(), ".opam");
 
+export const MANAGE_CYGWIN = core.getBooleanInput(
+  "manage-cygwin",
+  {
+    required: false,
+    trimWhitespace: true,
+  },
+);
+
 export const ALLOW_PRERELEASE_OPAM = core.getBooleanInput(
   "allow-prerelease-opam",
   {

@@ -17,6 +17,7 @@ import {
   OPAM_REPOSITORIES,
   OPAM_ROOT,
   PLATFORM,
+  MANAGE_CYGWIN,
 } from "./constants.js";
 import { installDune } from "./dune.js";
 import {
@@ -62,7 +63,7 @@ export async function installer() {
     );
   }
   const { opamCacheHit, cygwinCacheHit } = await restoreOpamCaches();
-  if (PLATFORM === "windows") {
+  if (PLATFORM === "windows" && MANAGE_CYGWIN) {
     if (!cygwinCacheHit) {
       await setupCygwin();
       await saveCygwinCache();

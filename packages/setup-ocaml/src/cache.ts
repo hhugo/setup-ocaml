@@ -15,6 +15,7 @@ import {
   OPAM_DISABLE_SANDBOXING,
   OPAM_ROOT,
   PLATFORM,
+  MANAGE_CYGWIN,
 } from "./constants.js";
 import { getLatestOpamRelease } from "./opam.js";
 import { resolveCompiler } from "./version.js";
@@ -164,7 +165,7 @@ async function restoreOpamCache() {
 export async function restoreOpamCaches() {
   return await core.group("Retrieve the opam cache", async () => {
     const [opamCacheHit, cygwinCacheHit] = await Promise.all(
-      PLATFORM === "windows"
+      PLATFORM === "windows" && MANAGE_CYGWIN
         ? [restoreOpamCache(), restoreCygwinCache()]
         : [restoreOpamCache()],
     );
