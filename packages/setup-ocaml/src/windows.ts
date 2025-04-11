@@ -54,6 +54,7 @@ export async function setupCygwin() {
       core.addPath(cachedPath);
     }
     const packages = [
+      "cygwin=3.6.0-1"
       "curl",
       "diffutils",
       "m4",
@@ -70,7 +71,6 @@ export async function setupCygwin() {
     await exec("setup-x86_64", [
       "--quiet-mode",
       "--symlink-type=sys",
-      "--upgrade-also",
       `--local-package-dir=${CYGWIN_LOCAL_PACKAGE_DIR}`,
       `--packages=${packages}`,
       `--root=${CYGWIN_ROOT}`,

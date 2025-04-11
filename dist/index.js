@@ -166147,6 +166147,7 @@ async function setupCygwin() {
             lib_core.addPath(cachedPath);
         }
         const packages = [
+            "cygwin=3.6.0-1",
             "curl",
             "diffutils",
             "m4",
@@ -166163,7 +166164,6 @@ async function setupCygwin() {
         await (0,lib_exec.exec)("setup-x86_64", [
             "--quiet-mode",
             "--symlink-type=sys",
-            "--upgrade-also",
             `--local-package-dir=${CYGWIN_LOCAL_PACKAGE_DIR}`,
             `--packages=${packages}`,
             `--root=${CYGWIN_ROOT}`,
